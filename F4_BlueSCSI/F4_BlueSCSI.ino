@@ -61,7 +61,7 @@
 #define READ_PARITY_CHECK 0    // Perform read parity check (unverified)
 
 // HDD format
-#define MAX_BLOCKSIZE 1024     // Maximum BLOCK size
+#define MAX_BLOCKSIZE 2048     // Maximum BLOCK size
 
 // SDFAT
 SdFs SD;
