@@ -1,6 +1,6 @@
 /*  
- *  BlueSCSI
- *  Copyright (c) 2021  Eric Helgeson, Androda
+ *  F4 BlueSCSI
+ *  Copyright (c) 2021  Eric Helgeson, Tech by Androda, LLC
  *  
  *  This file is free software: you may copy, redistribute and/or modify it  
  *  under the terms of the GNU General Public License as published by the  
@@ -34,6 +34,8 @@
  *     NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN  
  *     CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.  
  */
+ 
+#pragma GCC diagnostic warning "-fpermissive"
 
 #include <Arduino.h> // For Platform.IO
 #include <SdFat.h>
@@ -62,24 +64,27 @@
 #define MAX_BLOCKSIZE 1024     // Maximum BLOCK size
 
 // SDFAT
-#define SD1_CONFIG SdSpiConfig(PA4, DEDICATED_SPI, SD_SCK_MHZ(SPI_FULL_SPEED), &SPI)
 SdFs SD;
 
 #if DEBUG == 1
-#define LOG(XX)     Serial.print(XX)
-#define LOGHEX(XX)  Serial.print(XX, HEX)
-#define LOGN(XX)    Serial.println(XX)
-#define LOGHEXN(XX) Serial.println(XX, HEX)
-#elif DEBUG == 2
-#define LOG(XX)     LOG_FILE.println(XX); LOG_FILE.sync();
-#define LOGHEX(XX)  LOG_FILE.println(XX, HEX); LOG_FILE.sync();
-#define LOGN(XX)    LOG_FILE.println(XX); LOG_FILE.sync();
-#define LOGHEXN(XX) LOG_FILE.println(XX, HEX); LOG_FILE.sync();
+#define serial Serial2
+#define LOG(XX)     serial.print(XX)
+#define LOGHEX(XX)  serial.print(XX, HEX)
+#define LOGDEC(XX)  serial.print(XX, DEC)
+#define LOGBIN(XX)  serial.print(XX, BIN)
+#define LOGN(XX)    serial.println(XX)
+#define LOGHEXN(XX) serial.println(XX, HEX)
+#define LOGDECN(XX) serial.println(XX, DEC)
+#define LOGBIN_N(XX) serial.println(XX, BIN)
 #else
-#define LOG(XX)     //Serial.print(XX)
-#define LOGHEX(XX)  //Serial.print(XX, HEX)
-#define LOGN(XX)    //Serial.println(XX)
-#define LOGHEXN(XX) //Serial.println(XX, HEX)
+#define LOG(XX)       //serial.print(XX)
+#define LOGHEX(XX)    //serial.print(XX, HEX)
+#define LOGDEC(XX)    //serial.print(XX, DEC)
+#define LOGBIN(XX)    //serial.print(XX, BIN)
+#define LOGN(XX)      //serial.println(XX)
+#define LOGHEXN(XX)   //serial.println(XX, HEX)
+#define LOGDECN(XX)   //serial.println(XX, DEC)
+#define LOGBIN_N(XX)  //serial.println(XX, BIN)
 #endif
 
 #define active   1
@@ -90,19 +95,16 @@ SdFs SD;
 #define isHigh(XX) ((XX) == high)
 #define isLow(XX) ((XX) != high)
 
-#define gpio_mode(pin,val) gpio_set_mode(PIN_MAP[pin].gpio_device, PIN_MAP[pin].gpio_bit, val);
-#define gpio_write(pin,val) gpio_write_bit(PIN_MAP[pin].gpio_device, PIN_MAP[pin].gpio_bit, val)
-#define gpio_read(pin) gpio_read_bit(PIN_MAP[pin].gpio_device, PIN_MAP[pin].gpio_bit)
-
 //#define DB0       PB8     // SCSI:DB0
 //#define DB1       PB9     // SCSI:DB1
 //#define DB2       PB10    // SCSI:DB2
-//#define DB3       PB11    // SCSI:DB3
+//#define DB3       PB2     // SCSI:DB3
 //#define DB4       PB12    // SCSI:DB4
 //#define DB5       PB13    // SCSI:DB5
 //#define DB6       PB14    // SCSI:DB6
 //#define DB7       PB15    // SCSI:DB7
 //#define DBP       PB0     // SCSI:DBP
+
 #define ATN       PA8      // SCSI:ATN
 #define BSY       PA9      // SCSI:BSY
 #define ACK       PA10     // SCSI:ACK
@@ -112,25 +114,26 @@ SdFs SD;
 #define CD        PB5      // SCSI:C/D
 #define REQ       PB6      // SCSI:REQ
 #define IO        PB7      // SCSI:I/O
-#define LED2      PA0      // External LED
 
-#define SD_CS     PA4      // SDCARD:CS
 #define LED       PC13     // LED
+#define LED2      PB1      // Driven LED
 
 // GPIO register port
 #define PAREG GPIOA->regs
 #define PBREG GPIOB->regs
+#define PCREG GPIOC->regs
 
 // LED control
-#define LED_ON()       gpio_write(LED, high); gpio_write(LED2, low);
-#define LED_OFF()      gpio_write(LED, low); gpio_write(LED2, high);
+#define LED_ON()       PCREG->BSRR = 0x20000000; PBREG->BSRR = 0x00000002; //digitalWrite(LED, 0);
+#define LED_OFF()      PCREG->BSRR = 0x00002000; PBREG->BSRR = 0x00020000; //digitalWrite(LED, 1);
 
 // Virtual pin (Arduio compatibility is slow, so make it MCU-dependent)
 #define PA(BIT)       (BIT)
-#define PB(BIT)       (BIT+16)
+#define PB(BIT)       (BIT + 16)
+
 // Virtual pin decoding
-#define GPIOREG(VPIN)    ((VPIN)>=16?PBREG:PAREG)
-#define BITMASK(VPIN) (1<<((VPIN)&15))
+#define GPIOREG(VPIN)     ((VPIN) >= 16 ? PBREG : PAREG)
+#define BITMASK(VPIN)     (1 << ((VPIN) & 15))
 
 #define vATN       PA(8)      // SCSI:ATN
 #define vBSY       PA(9)      // SCSI:BSY
@@ -144,31 +147,25 @@ SdFs SD;
 #define vSD_CS     PA(4)      // SDCARD:CS
 
 // SCSI output pin control: opendrain active LOW (direct pin drive)
-#define SCSI_OUT(VPIN,ACTIVE) { GPIOREG(VPIN)->BSRR = BITMASK(VPIN)<<((ACTIVE)?16:0); }
+#define SCSI_OUT(VPIN,ACTIVE) { GPIOREG(VPIN)->BSRR = BITMASK(VPIN) << ((ACTIVE) ? 16 : 0); }
 
-// SCSI input pin check (inactive=0,avtive=1)
-#define SCSI_IN(VPIN) ((~GPIOREG(VPIN)->IDR>>(VPIN&15))&1)
+// SCSI input pin check (inactive=0,active=1)
+#define SCSI_IN(VPIN) ((~GPIOREG(VPIN)->IDR >> (VPIN & 15)) & 1)
 
-// GPIO mode
-// IN , FLOAT      : 4
-// IN , PU/PD      : 8
-// OUT, PUSH/PULL  : 3
-// OUT, OD         : 1
-//#define DB_MODE_OUT 3
-#define DB_MODE_OUT 1
-#define DB_MODE_IN  8
-
+static const uint32_t scsiDbOutputRegOr = 0x55150011;
+static const uint32_t scsiDbInputOutputAnd = 0x00C0FFCC;
 // Put DB and DP in output mode
-#define SCSI_DB_OUTPUT() { PBREG->CRL=(PBREG->CRL &0xfffffff0)|DB_MODE_OUT; PBREG->CRH = 0x11111111*DB_MODE_OUT; }
+#define SCSI_DB_OUTPUT() { PBREG->MODER = (PBREG->MODER & scsiDbInputOutputAnd) | scsiDbOutputRegOr; }
+
 // Put DB and DP in input mode
-#define SCSI_DB_INPUT()  { PBREG->CRL=(PBREG->CRL &0xfffffff0)|DB_MODE_IN ; PBREG->CRH = 0x11111111*DB_MODE_IN;  }
+#define SCSI_DB_INPUT()  { PBREG->MODER = (PBREG->MODER & scsiDbInputOutputAnd); }
 
 // Turn on the output only for BSY
-#define SCSI_BSY_ACTIVE()      { gpio_mode(BSY, GPIO_OUTPUT_OD); SCSI_OUT(vBSY,  active) }
+#define SCSI_BSY_ACTIVE()      { pinMode(BSY, OUTPUT_OPEN_DRAIN); SCSI_OUT(vBSY,  active) }
 // BSY,REQ,MSG,CD,IO Turn on the output (no change required for OD)
 #define SCSI_TARGET_ACTIVE()   { }
 // BSY,REQ,MSG,CD,IO Turn off output, BSY is the last input
-#define SCSI_TARGET_INACTIVE() { SCSI_OUT(vREQ,inactive); SCSI_OUT(vMSG,inactive); SCSI_OUT(vCD,inactive);SCSI_OUT(vIO,inactive); SCSI_OUT(vBSY,inactive); gpio_mode(BSY, GPIO_INPUT_PU); }
+#define SCSI_TARGET_INACTIVE() { SCSI_OUT(vREQ,inactive); SCSI_OUT(vMSG,inactive); SCSI_OUT(vCD,inactive); SCSI_OUT(vIO,inactive); SCSI_OUT(vBSY,inactive); pinMode(BSY, INPUT); }
 
 // HDDiamge file
 #define HDIMG_ID_POS  2                 // Position to embed ID number
@@ -202,18 +199,55 @@ byte          m_msb[256];             // Command storage bytes
  *  Data byte to BSRR register setting value and parity table
 */
 
-// Parity bit generation
-#define PTY(V)   (1^((V)^((V)>>1)^((V)>>2)^((V)>>3)^((V)>>4)^((V)>>5)^((V)>>6)^((V)>>7))&1)
+/**
+ * BSRR register generator
+ * Totally configurable for which pin is each data bit, which pin is PTY, and which pin is REQ.
+ * The only requirement is that data and parity pins are in the same GPIO block.
+ * REQ can be specified as -1 to ignore, as it doens't have to be in the same GPIO block.
+ * This is dramatically slower than the original static array, but is easier to configure
+ */
+static uint32_t genBSRR(uint32_t data) {
+  uint8_t masks[] = {0UL, 1UL, 2UL, 3UL, 4UL, 5UL, 6UL, 7UL};
+  // Positions array indicates which bit position each data bit goes in
+  // positions[0] is for data bit 0, position[1] for data bit 1, etc
+  // DB0, DB1, DB2, DB4, DB5, DB6, DB7 in order
+  uint8_t positions[] = {8UL, 9UL, 10UL, 2UL, 12UL, 13UL, 14UL, 15UL};
+  uint8_t dbpPosition = 0UL;
+  int reqPosition = 6;
+  uint8_t bitsAsserted = 0;
 
-// Data byte to BSRR register setting value conversion table
-// BSRR[31:24] =  DB[7:0]
-// BSRR[   16] =  PTY(DB)
-// BSRR[15: 8] = ~DB[7:0]
-// BSRR[    0] = ~PTY(DB)
+  uint32_t output = 0x00000000;
+  for (int i = 0; i < 8; i++) {
+    if (data & (0x1 << masks[i])) {
+      // There's a one in this bit position, BSRR reset
+      output |= 0x1 << (positions[i] + 16);
+      bitsAsserted++;
+    } else {
+      // There's a 0 in this bit position, BSRR set high
+      output |= (0x1 << positions[i]);
+    }
+  }
+
+  // Set the parity bit
+  if (bitsAsserted % 2 == 0) {
+    // Even number of bits asserted, Parity asserted (0, low, BSRR reset)
+    output |= 0x01 << (dbpPosition + 16);
+  } else {
+    // Odd number of bits asserted, Parity deasserted (1, high, BSRR set)
+    output |= 0x01 << dbpPosition;
+  }
+
+  // BSRR set REQ if specified
+  // Only set > 0 if it's in the same GPIO block as DB and DBP
+  if (reqPosition >= 0) {
+    output |= 0x01 << reqPosition;
+  }
+
+  return output;
+}
 
 // Set DBP, set REQ = inactive
-#define DBP(D)    ((((((uint32_t)(D)<<8)|PTY(D))*0x00010001)^0x0000ff01)|BITMASK(vREQ))
-
+#define DBP(D)    genBSRR(D)
 #define DBP8(D)   DBP(D),DBP(D+1),DBP(D+2),DBP(D+3),DBP(D+4),DBP(D+5),DBP(D+6),DBP(D+7)
 #define DBP32(D)  DBP8(D),DBP8(D+8),DBP8(D+16),DBP8(D+24)
 
@@ -222,8 +256,6 @@ static const uint32_t db_bsrr[256]={
   DBP32(0x00),DBP32(0x20),DBP32(0x40),DBP32(0x60),
   DBP32(0x80),DBP32(0xA0),DBP32(0xC0),DBP32(0xE0)
 };
-// Parity bit acquisition
-#define PARITY(DB) (db_bsrr[DB]&1)
 
 // Macro cleaning
 #undef DBP32
@@ -251,7 +283,7 @@ static const byte db2scsiid[256]={
 #endif
 
 // Log File
-#define VERSION "1.1-SNAPSHOT"
+#define VERSION "1.0-2021-10-28-F4"
 #define LOG_FILENAME "LOG.txt"
 FsFile LOG_FILE;
 
@@ -282,9 +314,10 @@ inline byte readIO(void)
 {
   // Port input data register
   uint32_t ret = GPIOB->regs->IDR;
-  byte bret = (byte)((~ret)>>8);
+  byte bret = (byte)~(((ret >> 8) & 0b11110111) | ((ret & 0x00000004) << 1));
+  
 #if READ_PARITY_CHECK
-  if((db_bsrr[bret]^ret)&1)
+  if((db_bsrr[bret]^ret)&1)  // TODO fix parity calculation
     m_sts |= 0x01; // parity error
 #endif
 
@@ -395,10 +428,7 @@ bool hddimageOpen(HDDIMG *h,const char *image_name,int id,int lun,int blocksize)
  */
 void setup()
 {
-  // PA15 / PB3 / PB4 Cannot be used
-  // JTAG Because it is used for debugging.
-  disableDebugPorts();
-
+  // PA2/3 cannot be used, they are for serial debug
   // Serial initialization
 #if DEBUG > 0
   Serial.begin(9600);
@@ -407,30 +437,37 @@ void setup()
 #endif
 
   // PIN initialization
-  gpio_mode(LED2, GPIO_OUTPUT_PP);
-  gpio_mode(LED, GPIO_OUTPUT_OD);
-  LED_OFF();
+  pinMode(LED, OUTPUT_OPEN_DRAIN);
+  pinMode(LED2, OUTPUT);
 
-  //GPIO(SCSI BUS)Initialization
-  //Port setting register (lower)
-//  GPIOB->regs->CRL |= 0x000000008; // SET INPUT W/ PUPD on PAB-PB0
-  //Port setting register (upper)
-  //GPIOB->regs->CRH = 0x88888888; // SET INPUT W/ PUPD on PB15-PB8
-//  GPIOB->regs->ODR = 0x0000FF00; // SET PULL-UPs on PB15-PB8
-  // DB and DP are input modes
+  // set up OTYPER for open drain on SCSI pins of PA and PB
+  // PA 0-7, 11-14
+  uint32_t oTypeA_And = 0x000078FF;
+  // PA 8, 9, 10, 15
+  uint32_t oTypeA_Or = 0x00008700;
+  GPIOA->regs->OTYPER = (GPIOA->regs->OTYPER & oTypeA_And) | oTypeA_Or;
+
+  // PB 1, 11 are not used
+  uint32_t oTypeB_And = 0x00000802;
+  // PB 0, 2-10, 12-15 are used for SCSI, set open drain
+  uint32_t oTypeB_Or = 0x0000F7FD;
+  GPIOB->regs->OTYPER = (GPIOB->regs->OTYPER & oTypeB_And) | oTypeB_Or;
+
   SCSI_DB_INPUT()
 
   // Input port
-  gpio_mode(ATN, GPIO_INPUT_PU);
-  gpio_mode(BSY, GPIO_INPUT_PU);
-  gpio_mode(ACK, GPIO_INPUT_PU);
-  gpio_mode(RST, GPIO_INPUT_PU);
-  gpio_mode(SEL, GPIO_INPUT_PU);
+  pinMode(ATN, INPUT_PULLUP);
+  pinMode(BSY, INPUT_PULLUP);
+  pinMode(ACK, INPUT_PULLUP);
+  pinMode(RST, INPUT_PULLUP);
+  pinMode(SEL, INPUT_PULLUP);
+
   // Output port
-  gpio_mode(MSG, GPIO_OUTPUT_OD);
-  gpio_mode(CD,  GPIO_OUTPUT_OD);
-  gpio_mode(REQ, GPIO_OUTPUT_OD);
-  gpio_mode(IO,  GPIO_OUTPUT_OD);
+  pinMode(MSG, OUTPUT_OPEN_DRAIN);
+  pinMode(CD, OUTPUT_OPEN_DRAIN);
+  pinMode(REQ, OUTPUT_OPEN_DRAIN);
+  pinMode(IO, OUTPUT_OPEN_DRAIN);
+
   // Turn off the output port
   SCSI_TARGET_INACTIVE()
 
@@ -439,8 +476,7 @@ void setup()
 
   LED_ON();
 
-  // clock = 36MHz , about 4Mbytes/sec
-  if(!SD.begin(SD1_CONFIG)) {
+  if(!SD.begin(SdSpiConfig(SS, DEDICATED_SPI))) {
 #if DEBUG > 0
     Serial.println("SD initialization failed!");
 #endif
@@ -542,7 +578,7 @@ void setup()
   finalizeFileLog();
   LED_OFF();
   //Occurs when the RST pin state changes from HIGH to LOW
-  attachInterrupt(PIN_MAP[RST].gpio_bit, onBusReset, FALLING);
+  attachInterrupt(RST, onBusReset, FALLING);
 }
 
 /*
@@ -550,7 +586,7 @@ void setup()
  */
 void initFileLog() {
   LOG_FILE = SD.open(LOG_FILENAME, O_WRONLY | O_CREAT | O_TRUNC);
-  LOG_FILE.println("BlueSCSI <-> SD - https://github.com/erichelgeson/BlueSCSI");
+  LOG_FILE.println("F4 BlueSCSI <-> SD - https://github.com/androda/F4_BlueSCSI");
   LOG_FILE.print("VERSION: ");
   LOG_FILE.println(VERSION);
   LOG_FILE.print("DEBUG:");
@@ -645,9 +681,9 @@ void onBusReset(void)
   // I can't filter because it only activates about 1.25us
   {{
 #else
-  if(isHigh(gpio_read(RST))) {
+  if(isHigh(digitalRead(RST))) {
     delayMicroseconds(20);
-    if(isHigh(gpio_read(RST))) {
+    if(isHigh(digitalRead(RST))) {
 #endif  
   // BUS FREE is done in the main process
 //      gpio_mode(MSG, GPIO_OUTPUT_OD);
@@ -691,8 +727,11 @@ inline void writeHandshake(byte d)
   SCSI_OUT(vREQ,active)   // (30ns)
   //while(!SCSI_IN(vACK)) { if(m_isBusReset){ SCSI_DB_INPUT() return; }}
   while(!m_isBusReset && !SCSI_IN(vACK));
+  
   // ACK.Fall to REQ.Raise delay 500ns(typ.) (DTC-510B)
-  GPIOB->regs->BSRR = DBP(0xff);  // DB=0xFF , SCSI_OUT(vREQ,inactive)
+  uint32_t bsrrCall = ((db_bsrr[0xff] & 0xFFBFFFFF) | 0x00000040);
+  GPIOB->regs->BSRR = bsrrCall;  // DB=0xFF , SCSI_OUT(vREQ,inactive)
+  
   // REQ.Raise to DB hold time 0ns
   SCSI_DB_INPUT() // (150ns)
   while( SCSI_IN(vACK)) { if(m_isBusReset) return; }
@@ -730,17 +769,21 @@ void writeDataPhaseSD(uint32_t adds, uint32_t len)
   SCSI_OUT(vCD ,inactive) //  gpio_write(CD, low);
   SCSI_OUT(vIO ,  active) //  gpio_write(IO, high);
 
+  int readStatus;
+
   for(uint32_t i = 0; i < len; i++) {
       // Asynchronous reads will make it faster ...
-    m_img->m_file.read(m_buf, m_img->m_blocksize);
+    readStatus = m_img->m_file.read(m_buf, m_img->m_blocksize);
+    LOG("RS:");
+    LOGDECN(readStatus);
 
 #if READ_SPEED_OPTIMIZE
 
 //#define REQ_ON() SCSI_OUT(vREQ,active)
-#define REQ_ON() (*db_dst = BITMASK(vREQ)<<16)
+#define REQ_ON() (*db_dst = BITMASK(vREQ) << 16)
 #define FETCH_SRC()   (src_byte = *srcptr++)
 #define FETCH_BSRR_DB() (bsrr_val = bsrr_tbl[src_byte])
-#define REQ_OFF_DB_SET(BSRR_VAL) *db_dst = BSRR_VAL
+#define REQ_OFF_DB_SET(BSRR_VAL) *db_dst = BSRR_VAL  // This sets output data port(+parity) to proper values
 #define WAIT_ACK_ACTIVE()   while(!m_isBusReset && !SCSI_IN(vACK))
 #define WAIT_ACK_INACTIVE() do{ if(m_isBusReset) return; }while(SCSI_IN(vACK)) 
 
@@ -751,7 +794,7 @@ void writeDataPhaseSD(uint32_t adds, uint32_t len)
     /*register*/ byte src_byte;                       // Send data bytes
     register const uint32_t *bsrr_tbl = db_bsrr;  // Table to convert to BSRR
     register uint32_t bsrr_val;                   // BSRR value to output (DB, DBP, REQ = ACTIVE)
-    register volatile uint32_t *db_dst = &(GPIOB->regs->BSRR); // Output port
+    register volatile uint32_t *db_dst = &(GPIOB->regs->BSRR); // DB&DBP Output port
 
     // prefetch & 1st out
     FETCH_SRC();
@@ -957,8 +1000,9 @@ byte onReadCapacityCommand(byte pmi)
  */
 byte onReadCommand(uint32_t adds, uint32_t len)
 {
-  LOGN("-R");
-  LOGHEXN(adds);
+  LOG("-R ");
+  LOGHEX(adds);
+  LOG(" ");
   LOGHEXN(len);
 
   if(!m_img) return 0x02; // Image file absent
@@ -976,6 +1020,7 @@ byte onWriteCommand(uint32_t adds, uint32_t len)
 {
   LOGN("-W");
   LOGHEXN(adds);
+  LOG(" ");
   LOGHEXN(len);
   
   if(!m_img) return 0x02; // Image file absent
@@ -1219,8 +1264,6 @@ void loop()
 
   // BSY+ SEL-
   // If the ID to respond is not driven, wait for the next
-  //byte db = readIO();
-  //byte scsiid = db & scsi_id_mask;
   byte scsiid = readIO() & scsi_id_mask;
   if((scsiid) == 0) {
     return;
@@ -1241,21 +1284,21 @@ void loop()
 #endif
 
   // Wait until SEL becomes inactive
-  while(isHigh(gpio_read(SEL)) && isLow(gpio_read(BSY))) {
+  while(isHigh(digitalRead(SEL)) && isLow(digitalRead(BSY))) {
     if(m_isBusReset) {
       goto BusFree;
     }
   }
   SCSI_TARGET_ACTIVE()  // (BSY), REQ, MSG, CD, IO output turned on
   //  
-  if(isHigh(gpio_read(ATN))) {
+  if(isHigh(digitalRead(ATN))) {
     bool syncenable = false;
     int syncperiod = 50;
     int syncoffset = 0;
     int loopWait = 0;
     m_msc = 0;
     memset(m_msb, 0x00, sizeof(m_msb));
-    while(isHigh(gpio_read(ATN)) && loopWait < 255) {
+    while(isHigh(digitalRead(ATN)) && loopWait < 255) {
       MsgOut2();
       loopWait++;
     }
@@ -1300,7 +1343,6 @@ void loop()
     }
   }
 
-  LOG("Command:");
   SCSI_OUT(vMSG,inactive) // gpio_write(MSG, low);
   SCSI_OUT(vCD ,  active) // gpio_write(CD, high);
   SCSI_OUT(vIO ,inactive) // gpio_write(IO, low);
@@ -1308,15 +1350,16 @@ void loop()
   int len;
   byte cmd[12];
   cmd[0] = readHandshake(); if(m_isBusReset) goto BusFree;
+  LOG("CMD:");
   LOGHEX(cmd[0]);
   // Command length selection, reception
   static const int cmd_class_len[8]={6,10,10,6,6,12,6,6};
   len = cmd_class_len[cmd[0] >> 5];
-  cmd[1] = readHandshake(); LOG(":");LOGHEX(cmd[1]); if(m_isBusReset) goto BusFree;
-  cmd[2] = readHandshake(); LOG(":");LOGHEX(cmd[2]); if(m_isBusReset) goto BusFree;
-  cmd[3] = readHandshake(); LOG(":");LOGHEX(cmd[3]); if(m_isBusReset) goto BusFree;
-  cmd[4] = readHandshake(); LOG(":");LOGHEX(cmd[4]); if(m_isBusReset) goto BusFree;
-  cmd[5] = readHandshake(); LOG(":");LOGHEX(cmd[5]); if(m_isBusReset) goto BusFree;
+  cmd[1] = readHandshake(); LOG(":"); LOGHEX(cmd[1]); if(m_isBusReset) goto BusFree;
+  cmd[2] = readHandshake(); LOG(":"); LOGHEX(cmd[2]); if(m_isBusReset) goto BusFree;
+  cmd[3] = readHandshake(); LOG(":"); LOGHEX(cmd[3]); if(m_isBusReset) goto BusFree;
+  cmd[4] = readHandshake(); LOG(":"); LOGHEX(cmd[4]); if(m_isBusReset) goto BusFree;
+  cmd[5] = readHandshake(); LOG(":"); LOGHEX(cmd[5]); if(m_isBusReset) goto BusFree;
   // Receive the remaining commands
   for(int i = 6; i < len; i++ ) {
     cmd[i] = readHandshake();
