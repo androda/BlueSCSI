@@ -290,7 +290,7 @@ byte SCSI_INFO_BUF[36] = {
 void onFalseInit(void);
 void noSDCardFound(void);
 void onBusReset(void);
-void initFileLog(void);
+void initFileLog(int);
 void finalizeFileLog(void);
 
 /*
@@ -463,15 +463,27 @@ void setup()
   //Occurs when the RST pin state changes from HIGH to LOW
   //attachInterrupt(RST, onBusReset, FALLING);
 
+  // Try different clock speeds till we find one that is stable.
   LED_ON();
+  int mhz = 50;
+  bool sd_ready = false;
+  while (mhz >= 32 && !sd_ready) {
+    if(SD.begin(SdSpiConfig(PA4, DEDICATED_SPI, SD_SCK_MHZ(mhz), &SPI))) {
+      sd_ready = true;
+    }
+    else {
+      mhz--;
+    }
+  }
+  LED_OFF();
 
-  if(!SD.begin(SdSpiConfig(SS, DEDICATED_SPI))) {
+  if(!sd_ready) {
 #if DEBUG > 0
     Serial.println("SD initialization failed!");
 #endif
     noSDCardFound();
   }
-  initFileLog();
+  initFileLog(mhz);
   readSCSIDeviceConfig();
   readSDCardInfo();
 
@@ -569,7 +581,7 @@ void setup()
 /*
  * Setup initialization logfile
  */
-void initFileLog() {
+void initFileLog(int success_mhz) {
   LOG_FILE = SD.open(LOG_FILENAME, O_WRONLY | O_CREAT | O_TRUNC);
   LOG_FILE.println("F4 BlueSCSI <-> SD - https://github.com/androda/F4_BlueSCSI");
   LOG_FILE.print("VERSION: ");
@@ -582,6 +594,12 @@ void initFileLog() {
   LOG_FILE.println(SDFAT_FILE_TYPE);
   LOG_FILE.print("SdFat version: ");
   LOG_FILE.println(SD_FAT_VERSION_STR);
+  LOG_FILE.print("SPI speed: ");
+  LOG_FILE.print(success_mhz);
+  LOG_FILE.println("Mhz");
+  if(success_mhz < 40) {
+    LOG_FILE.println("SPI under 40Mhz - read https://github.com/erichelgeson/BlueSCSI/wiki/Slow-SPI");
+  }
   LOG_FILE.print("SdFat Max FileName Length: ");
   LOG_FILE.println(MAX_FILE_PATH);
   LOG_FILE.println("Initialized SD Card - lets go!");
