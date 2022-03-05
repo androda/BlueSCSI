@@ -43,7 +43,7 @@ https://github.com/erichelgeson/BlueSCSI/wiki/Troubleshooting
 ## Hardware Versions
 Generally speaking, hardware versions follow a naming scheme.
 
-Generally it goes: Variant.Maker.Style.Version
+Variant.Maker.Style.Version
 
 For example: {F4.TbA.D.V1}
 
