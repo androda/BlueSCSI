@@ -16,32 +16,16 @@ F4 BlueSCSI, BlueSCSI, and ArdSCSino are hardware that reproduces SCSI devices (
 
 
 ## Discussion
-Join us in #bluescsi on https://discord.gg/GKcvtgU7P9[Discord] or open an issue on this repo.
+Join us in #bluescsi on https://discord.gg/GKcvtgU7P9[Discord].
 
 
-## Compatibility
-If your computer is not listed below - it may be compatible but there is no guarantee it will work. This device is designed and tested to work with many different Macs, PowerPC included.  In terms of goals, the greatest compatibility possible is the long term ideal (Macs, PCs, DEC computers, etc).
-
-### Tested Compatible
-(to be completed)
-
-* LC II, LC III
-
-* Mac IIci
-
-* Quadra 700
-
-* PowerMac 9600
-
-* Beige G3
-
-
-## Performance
-(to be completed)
+## Compatibility and Performance
+https://github.com/androda/F4_BlueSCSI/wiki/System-Compatibility-and-Performance[Compatibility and Performance]
 
 
 ## Assembly
-(to be completed)
+Assembly instructions are generally found on my separate site, here: https://androda.work/kit-assembly/
+These aren't really assembly instructions either, mostly pictures of the assembled design with tips on which way things should be facing.
 
 ## Usage
 https://github.com/erichelgeson/BlueSCSI/wiki/Usage[Usage] is intended to be the same as the parent project and will be kept in sync until the blue pill module's flash is all used.  Then F4 will start to diverge.
@@ -52,11 +36,15 @@ Termination enable / disable is handled differently per board style.  See the in
 
 
 ## Troubleshooting
-(to be completed)
+(to be completed, currently similar to the parent repo - but there are no jumpers on these dev modules.)
+https://github.com/erichelgeson/BlueSCSI/wiki/Troubleshooting
 
 
 ## Hardware Versions
-(to be completed)
+Generally speaking, hardware versions follow a naming scheme.
+Generally it goes: Variant.Maker.Style.Version
+For example: {F4.TbA.D.V1}
+This is an F4 model from Tech by Androda, D is for Desktop and V1 means first revision.
 
 
 ## Development (Advanced, annoying to set up)
