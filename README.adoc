@@ -34,6 +34,9 @@ https://github.com/erichelgeson/BlueSCSI/wiki/Usage[Usage] is intended to be the
 ### Termination
 Termination enable / disable is handled differently per board style.  See the instructions for each PCB design.
 
+## Firmware Updates
+https://github.com/androda/F4_BlueSCSI/wiki/Flashing-Firmware-Updates[Flashing Firmware Updates]
+
 
 ## Troubleshooting
 (to be completed, currently similar to the parent repo - but there are no jumpers on these dev modules.)
