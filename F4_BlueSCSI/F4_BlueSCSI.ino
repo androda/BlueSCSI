@@ -39,6 +39,7 @@
 
 #include <Arduino.h> // For Platform.IO
 #include <SdFat.h>
+#include <setjmp.h>
 
 #ifdef USE_STM32_DMA
 #warning "warning USE_STM32_DMA"
@@ -193,6 +194,8 @@ HDDIMG  img[NUM_SCSIID][NUM_SCSILUN]; // Maximum number
 uint8_t       m_senseKey = 0;         // Sense key
 unsigned      m_addition_sense = 0;   // Additional sense information
 volatile bool m_isBusReset = false;   // Bus reset
+volatile bool m_resetJmp = false;     // Call longjmp on reset
+jmp_buf       m_resetJmpBuf;
 
 byte          scsi_id_mask;           // Mask list of responding SCSI IDs
 byte          m_id;                   // Currently responding SCSI-ID
@@ -462,7 +465,7 @@ void setup()
   SCSI_TARGET_INACTIVE()
 
   //Occurs when the RST pin state changes from HIGH to LOW
-  //attachInterrupt(PIN_MAP[RST].gpio_bit, onBusReset, FALLING);
+  //attachInterrupt(RST, onBusReset, FALLING);
 
   LED_ON();
 
@@ -658,6 +661,36 @@ void noSDCardFound(void)
 }
 
 /*
+ * Return from exception and call longjmp
+ */
+void __attribute__ ((noinline)) longjmpFromInterrupt(jmp_buf jmpb, int retval) __attribute__ ((noreturn));
+void longjmpFromInterrupt(jmp_buf jmpb, int retval) {
+  // Address of longjmp with the thumb bit cleared
+  const uint32_t longjmpaddr = ((uint32_t)longjmp) & 0xfffffffe;
+  const uint32_t zero = 0;
+  // Default PSR value, function calls don't require any particular value
+  const uint32_t PSR = 0x01000000;
+  // For documentation on what this is doing, see:
+  // https://developer.arm.com/documentation/dui0552/a/the-cortex-m3-processor/exception-model/exception-entry-and-return
+  // Stack frame needs to have R0-R3, R12, LR, PC, PSR (from bottom to top)
+  // This is being set up to have R0 and R1 contain the parameters passed to longjmp, and PC is the address of the longjmp function.
+  // This is using existing stack space, rather than allocating more, as longjmp is just going to unroll the stack even further.
+  // 0xfffffff9 is the EXC_RETURN value to return to thread mode.
+  asm (
+      "str %0, [sp];\
+      str %1, [sp, #4];\
+      str %2, [sp, #8];\
+      str %2, [sp, #12];\
+      str %2, [sp, #16];\
+      str %2, [sp, #20];\
+      str %3, [sp, #24];\
+      str %4, [sp, #28];\
+      ldr lr, =0xfffffff9"
+       :: "r"(jmpb),"r"(retval),"r"(zero), "r"(longjmpaddr), "r"(PSR)
+  );
+}
+
+/*
  * Bus reset interrupt.
  */
 void onBusReset(void)
@@ -680,8 +713,26 @@ void onBusReset(void)
       SCSI_DB_INPUT()
 
       LOGN("BusReset!");
-      m_isBusReset = true;
+      if (m_resetJmp) {
+        m_resetJmp = false;
+        // Jumping out of the interrupt handler, so need to clear the interupt source.
+        uint8 exti = PIN_MAP[RST].gpio_bit;
+        EXTI_BASE->PR = (1U << exti);
+        longjmpFromInterrupt(m_resetJmpBuf, 1);
+      } else {
+        m_isBusReset = true;
+      }
     }
+  }
+}
+    
+/*
+ * Enable the reset longjmp, and check if reset fired while it was disabled.
+ */
+void enableResetJmp(void) {
+  m_resetJmp = true;
+  if (m_isBusReset) {
+    longjmp(m_resetJmpBuf, 1);
   }
 }
 
@@ -692,10 +743,10 @@ inline byte readHandshake(void)
 {
   SCSI_OUT(vREQ,active)
   //SCSI_DB_INPUT()
-  while( ! SCSI_IN(vACK)) { if(m_isBusReset) return 0; }
+  while( ! SCSI_IN(vACK));
   byte r = readIO();
   SCSI_OUT(vREQ,inactive)
-  while( SCSI_IN(vACK)) { if(m_isBusReset) return 0; }
+  while( SCSI_IN(vACK));
   return r;  
 }
 
@@ -712,15 +763,14 @@ inline void writeHandshake(byte d)
   SCSI_OUT(vREQ,inactive) // setup wait (30ns)
   SCSI_OUT(vREQ,active)   // (30ns)
   //while(!SCSI_IN(vACK)) { if(m_isBusReset){ SCSI_DB_INPUT() return; }}
-  while(!m_isBusReset && !SCSI_IN(vACK));
-  
+  while(!SCSI_IN(vACK));
   // ACK.Fall to REQ.Raise delay 500ns(typ.) (DTC-510B)
   uint32_t bsrrCall = ((db_bsrr[0xff] & 0xFFBFFFFF) | 0x00000040);
   GPIOB->regs->BSRR = bsrrCall;  // DB=0xFF , SCSI_OUT(vREQ,inactive)
   
   // REQ.Raise to DB hold time 0ns
   SCSI_DB_INPUT() // (150ns)
-  while( SCSI_IN(vACK)) { if(m_isBusReset) return; }
+  while( SCSI_IN(vACK));
 }
 
 /*
@@ -734,9 +784,6 @@ void writeDataPhase(int len, const byte* p)
   SCSI_OUT(vCD ,inactive) //  gpio_write(CD, low);
   SCSI_OUT(vIO ,  active) //  gpio_write(IO, high);
   for (int i = 0; i < len; i++) {
-    if(m_isBusReset) {
-      return;
-    }
     writeHandshake(p[i]);
   }
 }
@@ -755,13 +802,11 @@ void writeDataPhaseSD(uint32_t adds, uint32_t len)
   SCSI_OUT(vCD ,inactive) //  gpio_write(CD, low);
   SCSI_OUT(vIO ,  active) //  gpio_write(IO, high);
 
-  int readStatus;
-
   for(uint32_t i = 0; i < len; i++) {
       // Asynchronous reads will make it faster ...
-    readStatus = m_img->m_file.read(m_buf, m_img->m_blocksize);
-    LOG("RS:");
-    LOGDECN(readStatus);
+    m_resetJmp = false;
+    m_img->m_file.read(m_buf, m_img->m_blocksize);
+    enableResetJmp();
 
 #if READ_SPEED_OPTIMIZE
 
@@ -769,9 +814,9 @@ void writeDataPhaseSD(uint32_t adds, uint32_t len)
 #define REQ_ON() (*db_dst = BITMASK(vREQ) << 16)
 #define FETCH_SRC()   (src_byte = *srcptr++)
 #define FETCH_BSRR_DB() (bsrr_val = bsrr_tbl[src_byte])
-#define REQ_OFF_DB_SET(BSRR_VAL) *db_dst = BSRR_VAL  // This sets output data port(+parity) to proper values
-#define WAIT_ACK_ACTIVE()   while(!m_isBusReset && !SCSI_IN(vACK))
-#define WAIT_ACK_INACTIVE() do{ if(m_isBusReset) return; }while(SCSI_IN(vACK)) 
+#define REQ_OFF_DB_SET(BSRR_VAL) *db_dst = BSRR_VAL
+#define WAIT_ACK_ACTIVE()   while(!SCSI_IN(vACK))
+#define WAIT_ACK_INACTIVE() while(SCSI_IN(vACK)) 
 
     SCSI_DB_OUTPUT()
     register byte *srcptr= m_buf;                 // Source buffer
@@ -851,9 +896,6 @@ void writeDataPhaseSD(uint32_t adds, uint32_t len)
     SCSI_DB_INPUT()
 #else
     for(int j = 0; j < m_img->m_blocksize; j++) {
-      if(m_isBusReset) {
-        return;
-      }
       writeHandshake(m_buf[j]);
     }
 #endif
@@ -887,6 +929,7 @@ void readDataPhaseSD(uint32_t adds, uint32_t len)
   SCSI_OUT(vCD ,inactive) //  gpio_write(CD, low);
   SCSI_OUT(vIO ,inactive) //  gpio_write(IO, low);
   for(uint32_t i = 0; i < len; i++) {
+    m_resetJmp = true;
 #if WRITE_SPEED_OPTIMIZE
   register byte *dstptr= m_buf;
 	register byte *endptr= m_buf + m_img->m_blocksize;
@@ -900,21 +943,21 @@ void readDataPhaseSD(uint32_t adds, uint32_t len)
       dstptr[5] = readHandshake();
       dstptr[6] = readHandshake();
       dstptr[7] = readHandshake();
-      if(m_isBusReset) {
-        return;
-      }
     }
 #else
     for(int j = 0; j <  m_img->m_blocksize; j++) {
-      if(m_isBusReset) {
-        return;
-      }
       m_buf[j] = readHandshake();
     }
 #endif
+    m_resetJmp = false;
     m_img->m_file.write(m_buf, m_img->m_blocksize);
+    // If a reset happened while writing, break and let the flush happen before it is handled.
+    if (m_isBusReset) {
+      break;
+    }
   }
   m_img->m_file.flush();
+  enableResetJmp();
 }
 
 /*
@@ -1287,6 +1330,11 @@ void loop()
   }
   LOGN("Selection");
   m_isBusReset = false;
+  if (setjmp(m_resetJmpBuf) == 1) {
+    LOGN("Reset, going to BusFree");
+    goto BusFree;
+  }
+  enableResetJmp();
   // Set BSY to-when selected
   SCSI_BSY_ACTIVE();     // Turn only BSY output ON, ACTIVE
 
@@ -1295,9 +1343,6 @@ void loop()
 
   // Wait until SEL becomes inactive
   while(isHigh(digitalRead(SEL)) && isLow(digitalRead(BSY))) {
-    if(m_isBusReset) {
-      goto BusFree;
-    }
   }
   SCSI_TARGET_ACTIVE()  // (BSY), REQ, MSG, CD, IO output turned on
   //  
@@ -1359,23 +1404,21 @@ void loop()
   
   int len;
   byte cmd[12];
-  cmd[0] = readHandshake(); if(m_isBusReset) goto BusFree;
-  LOG("CMD:");
+  cmd[0] = readHandshake();
   LOGHEX(cmd[0]);
   // Command length selection, reception
   static const int cmd_class_len[8]={6,10,10,6,6,12,6,6};
   len = cmd_class_len[cmd[0] >> 5];
-  cmd[1] = readHandshake(); LOG(":"); LOGHEX(cmd[1]); if(m_isBusReset) goto BusFree;
-  cmd[2] = readHandshake(); LOG(":"); LOGHEX(cmd[2]); if(m_isBusReset) goto BusFree;
-  cmd[3] = readHandshake(); LOG(":"); LOGHEX(cmd[3]); if(m_isBusReset) goto BusFree;
-  cmd[4] = readHandshake(); LOG(":"); LOGHEX(cmd[4]); if(m_isBusReset) goto BusFree;
-  cmd[5] = readHandshake(); LOG(":"); LOGHEX(cmd[5]); if(m_isBusReset) goto BusFree;
+  cmd[1] = readHandshake(); LOG(":");LOGHEX(cmd[1]);
+  cmd[2] = readHandshake(); LOG(":");LOGHEX(cmd[2]);
+  cmd[3] = readHandshake(); LOG(":");LOGHEX(cmd[3]);
+  cmd[4] = readHandshake(); LOG(":");LOGHEX(cmd[4]);
+  cmd[5] = readHandshake(); LOG(":");LOGHEX(cmd[5]);
   // Receive the remaining commands
   for(int i = 6; i < len; i++ ) {
     cmd[i] = readHandshake();
     LOG(":");
     LOGHEX(cmd[i]);
-    if(m_isBusReset) goto BusFree;
   }
   // LUN confirmation
   m_sts = cmd[1]&0xe0;      // Preset LUN in status byte
@@ -1474,18 +1517,12 @@ void loop()
     m_addition_sense = 0x2000; // Invalid Command Operation Code
     break;
   }
-  if(m_isBusReset) {
-     goto BusFree;
-  }
 
   LOGN("Sts");
   SCSI_OUT(vMSG,inactive) // gpio_write(MSG, low);
   SCSI_OUT(vCD ,  active) // gpio_write(CD, high);
   SCSI_OUT(vIO ,  active) // gpio_write(IO, high);
   writeHandshake(m_sts);
-  if(m_isBusReset) {
-     goto BusFree;
-  }
 
   LOGN("MsgIn");
   SCSI_OUT(vMSG,  active) // gpio_write(MSG, high);
