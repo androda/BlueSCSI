@@ -259,16 +259,8 @@ static uint32_t genBSRR(uint32_t data) {
   return output;
 }
 
-// Set DBP, set REQ = inactive
-#define DBP(D)    genBSRR(D)
-#define DBP8(D)   DBP(D),DBP(D+1),DBP(D+2),DBP(D+3),DBP(D+4),DBP(D+5),DBP(D+6),DBP(D+7)
-#define DBP32(D)  DBP8(D),DBP8(D+8),DBP8(D+16),DBP8(D+24)
-
-// BSRR register control value that simultaneously performs DB set, DP set, and REQ = H (inactrive)
-static const uint32_t db_bsrr[256]={
-  DBP32(0x00),DBP32(0x20),DBP32(0x40),DBP32(0x60),
-  DBP32(0x80),DBP32(0xA0),DBP32(0xC0),DBP32(0xE0)
-};
+// BSRR register control value that simultaneously performs DB set, DP set, and REQ = H (inactive)
+uint32_t db_bsrr[256];
 
 // Macro cleaning
 #undef DBP32
@@ -422,7 +414,11 @@ bool hddimageOpen(HDDIMG *h,const char *image_name,int id,int lun,int blocksize)
  */
 void setup()
 {
-  // PA2/3 cannot be used, they are for serial debug
+  // Setup BSRR table
+  for (unsigned i = 0; i <= 255; i++) {
+    db_bsrr[i] = genBSRR(i);
+  }
+
   // Serial initialization
 #if DEBUG > 0
   Serial.begin(9600);
