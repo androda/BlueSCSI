@@ -1,0 +1,26 @@
+Parts List for PowerBook F4Lite THT V1
+
+Through-hole parts:
+
+0ZRR0050FF1E fuse, x1
+SB130-T diodes, x3 (any schottky with 800mA+ rating ought to be fine)
+LD1117V adjustable linear regulator x1
+MFS1/4DCT52R1200F 120 ohm resistor for position R2, x1
+MFR-25FBF52-154R 154 ohm resistor for position R1, x1
+^  These resistor *values* are non-negotiable, but their physical sizing can differ
+4610X-101-102LF 1000 ohm resistor network, x2
+^ Can grab some 20 pin DIP chip sockets and chop in half to use as sockets for the resistor nets
+40 Pin PowerBook SCSI connector
+* Harwin M22-2042005
+* 2x20 2.0mm two-row connectors have been hard to find.  But 2x40 are somewhat common, and can be cut in half with an exacto knife.
+* https://www.aliexpress.com/item/2051375493.html
+
+
+Microcontroller Module:
+STM32F401 "Green Pill", this is the one you're looking for: https://stm32-base.org/boards/STM32F401CCU6-STM32-Mini-F401
+* Search Amazon or eBay for "STM32F401"
+* https://www.aliexpress.com/item/1005001639712812.html
+
+Surface-Mount parts:
+Three 1210 size 22uF capacitors, 10+ volt rating (higher voltage rating is better, I used 25V)
+Molex 105162-0001 MicroSD Card Slot
