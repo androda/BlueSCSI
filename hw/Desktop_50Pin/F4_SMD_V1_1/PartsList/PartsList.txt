@@ -1,0 +1,28 @@
+Parts List for F4 SMD V1.1
+
+Through-hole parts:
+Some 2.54mm header strip (optional, could hard wire 'USE_TPWR' jumper and hard wire the LED)
+A 2.54mm jumper (If using header strip for the USE_TPWR jumper, this is required)
+Berg Floppy connector, TE Connectivity 171826-4
+50 pin SCSI connector, male 2x25 2.54mm header - can be straight-out or right-angle as long as the notch is in the right place.
+^ For the SCSI connector, there are a ton of options:
+* 3M 30350-6002HB (straight)
+* 3M 30350-5002HB (right angle)
+* https://www.aliexpress.com/item/4000284180928.html
+
+Microcontroller Module:
+STM32F411 "Black Pill" (note that there are two versions of this design, one using an F411 and one with an F401 - F411 is the correct one)
+This is the one you want: https://stm32-base.org/boards/STM32F401CEU6-WeAct-Black-Pill-V3.0
+^ Note that this page says it's an F401, but the official store (aliexpress link below) shows an F411.
+* Search Amazon or eBay for "STM32F411" 
+* https://www.aliexpress.com/item/1005001456186625.html
+
+Surface-Mount parts:
+Two 1210 size 22uF capacitors, 10+ volt rating (higher voltage rating is better, I used 25V)
+One 0805 size 4.8uF capacitor, similar voltage rating as ^
+Three SOD-123F Schottky Diodes, 800+ mA continuous current rating
+Two 0805 size 500mA-hold rated PTC Fuses
+Eighteen 0603 size 110 ohm resistors
+One 2.85v rated 1117 linear regulator in SOT-223 package
+Two SN74CBTD3861DBQR bus switches
+Molex 105162-0001 MicroSD Card Slot
