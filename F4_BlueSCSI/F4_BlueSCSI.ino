@@ -920,7 +920,7 @@ void readDataLoop(uint32_t blockSize)
     WAIT_ACK_ACTIVE();
     uint32_t ret = PBREG->IDR;
     REQ_OFF();
-    *dstptr++ = ~(ret >> 8);
+    *dstptr++ = (byte)~(((ret >> 8) & 0b11110111) | ((ret & 0x00000004) << 1));
     // Move wait loop in to a single 8 byte prefetch buffer
     asm("nop.w;nop");
     WAIT_ACK_INACTIVE();
