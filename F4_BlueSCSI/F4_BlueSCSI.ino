@@ -446,8 +446,8 @@ void setup()
   GPIOB->regs->OTYPER = (GPIOB->regs->OTYPER & oTypeB_And) | oTypeB_Or;
 
   // Image Set Select Init
-  gpio_mode(IMAGE_SELECT1, GPIO_INPUT_PU);
-  gpio_mode(IMAGE_SELECT2, GPIO_INPUT_PU);
+  pinMode(IMAGE_SELECT1, INPUT_PULLUP);
+  pinMode(IMAGE_SELECT2, INPUT_PULLUP);
   pinMode(IMAGE_SELECT1, INPUT);
   pinMode(IMAGE_SELECT2, INPUT);
   int image_file_set = ((digitalRead(IMAGE_SELECT1) == LOW) ? 1 : 0) | ((digitalRead(IMAGE_SELECT2) == LOW) ? 2 : 0);
