@@ -468,7 +468,7 @@ void setup()
   int mhz = 50;
   bool sd_ready = false;
   while (mhz >= 32 && !sd_ready) {
-    if(SD.begin(SdSpiConfig(PA4, DEDICATED_SPI, SD_SCK_MHZ(mhz), &SPI))) {
+    if(SD.begin(SdSpiConfig(SS, DEDICATED_SPI, SD_SCK_MHZ(mhz)))) {
       sd_ready = true;
     }
     else {
