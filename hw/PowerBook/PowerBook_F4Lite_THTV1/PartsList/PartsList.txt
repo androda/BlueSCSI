@@ -22,5 +22,5 @@ STM32F401 "Green Pill", this is the one you're looking for: https://stm32-base.o
 * https://www.aliexpress.com/item/1005001639712812.html
 
 Surface-Mount parts:
-Three 1210 size 22uF capacitors, 10+ volt rating (higher voltage rating is better, I used 25V)
+Three 1206 size 22uF capacitors, 10+ volt rating (higher voltage rating is better, I used 25V)
 Molex 105162-0001 MicroSD Card Slot
