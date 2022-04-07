@@ -54,7 +54,7 @@ This is an F4 model from Tech by Androda, D is for Desktop and V1 means first re
 
 
 ## Development (Advanced, annoying to set up)
-(to be completed)
+https://github.com/androda/F4_BlueSCSI/tree/main/docs/Dev_Instructions[Dev Instructions]
 
 
 ## Notes
