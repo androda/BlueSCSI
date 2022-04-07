@@ -40,6 +40,7 @@
 #include <Arduino.h> // For Platform.IO
 #include <SdFat.h>
 #include <setjmp.h>
+#include <libmaple/exti.h>
 
 #ifdef USE_STM32_DMA
 #warning "warning USE_STM32_DMA"
@@ -716,7 +717,7 @@ void onBusReset(void)
       if (m_resetJmp) {
         m_resetJmp = false;
         // Jumping out of the interrupt handler, so need to clear the interupt source.
-        uint8 exti = PIN_MAP[RST].gpio_bit;
+        uint8 exti = 15; // PIN_MAP[RST].gpio_bit;  the gpio_bit is just the number in the pin bank
         EXTI_BASE->PR = (1U << exti);
         longjmpFromInterrupt(m_resetJmpBuf, 1);
       } else {
