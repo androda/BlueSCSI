@@ -800,7 +800,7 @@ void writeDataPhase(int len, const byte* p)
 void writeDataLoop(uint32_t blocksize) __attribute__ ((aligned(8)));
 void writeDataLoop(uint32_t blocksize)
 {
-#define REQ_ON() (port_b->BRR = req_bit);
+#define REQ_ON() (port_b->BSRR = req_rst_bit);
 #define FETCH_BSRR_DB() (bsrr_val = bsrr_tbl[*srcptr++])
 #define REQ_OFF_DB_SET(BSRR_VAL) port_b->BSRR = BSRR_VAL;
 #define WAIT_ACK_ACTIVE()   while((*port_a_idr>>(vACK&15)&1))
@@ -813,6 +813,7 @@ void writeDataLoop(uint32_t blocksize)
   register uint32_t bsrr_val;                   // BSRR value to output (DB, DBP, REQ = ACTIVE)
 
   register uint32_t req_bit = BITMASK(vREQ);
+  register uint32_t req_rst_bit = BITMASK(vREQ) << 16;
   register gpio_reg_map *port_b = PBREG;
   register volatile uint32_t *port_a_idr = &(GPIOA->regs->IDR);
 
@@ -906,18 +907,18 @@ void readDataLoop(uint32_t blockSize)
   register byte *dstptr= m_buf;
   register byte *endptr= m_buf + blockSize - 1;
 
-#define REQ_ON() (port_b->BRR = req_bit);
-#define REQ_OFF() (port_b->BSRR = req_bit);
+#define REQ_ON() (PBREG->BSRR = req_rst_bit);
+#define REQ_OFF() (PBREG->BSRR = req_bit);
 #define WAIT_ACK_ACTIVE()   while((*port_a_idr>>(vACK&15)&1))
 #define WAIT_ACK_INACTIVE() while(!(*port_a_idr>>(vACK&15)&1))
   register uint32_t req_bit = BITMASK(vREQ);
-  register gpio_reg_map *port_b = PBREG;
+  register uint32_t req_rst_bit = BITMASK(vREQ) << 16;
   register volatile uint32_t *port_a_idr = &(GPIOA->regs->IDR);
   REQ_ON();
   // Start of the do/while and WAIT are already aligned to 8 bytes.
   do {
     WAIT_ACK_ACTIVE();
-    uint32_t ret = port_b->IDR;
+    uint32_t ret = PBREG->IDR;
     REQ_OFF();
     *dstptr++ = ~(ret >> 8);
     // Move wait loop in to a single 8 byte prefetch buffer
@@ -930,7 +931,7 @@ void readDataLoop(uint32_t blockSize)
   WAIT_ACK_ACTIVE();
   uint32_t ret = GPIOB->regs->IDR;
   REQ_OFF();
-  *dstptr = ~(ret >> 8);
+  *dstptr = (byte)~(((ret >> 8) & 0b11110111) | ((ret & 0x00000004) << 1));
   WAIT_ACK_INACTIVE();
 }
 #pragma GCC pop_options
