@@ -1,0 +1,18 @@
+Id,Designator,Quantity,Part
+1,J3,1,"SCSI 50 Pin Connector, 2x25 2.54mm spacing male header"
+2,"R6,R4,R5,R10,R7,R8,R1,R11,R9,R3,R2,R18,R17,R16,R15,R14,R13,R12",18,"0603 SMD Resistor, 110 Ohm"
+3,J4,1,"Berg Floppy Connector, TE Connectivity 171826-4"
+4,"C1,C2",2,"1206 SMD 22uF Capacitor, 10v+"
+5,U3,1,AMS1117-2.85
+6,"U1, U2",2,SN74CBTD3861DBQR
+7,F1,1,0ZRR0050FF1E 
+8,"C3,C9,C10,C11,C12",5,"0805 SMD 4.7uF Capacitor, 10v+"
+10,"U4,U5",2,SN74LVT162245ADGGR 
+11,"C4,C5,C6,C7,C8",5,"0805 SMD 0.1uF Capacitor, 10v+"
+12,R19,1,0805 SMD 10k resistor
+13,J1,1,1x2 male header
+14,R21,1,"0805 SMD Resistor, 470 Ohm"
+15,SD1,1,SOFNG SD-001
+16,"D1,D2",2,SS14 SMA Diode
+17,J2,1,1x3 male header
+18,U6,1,Green STM32F401 Dev Board
