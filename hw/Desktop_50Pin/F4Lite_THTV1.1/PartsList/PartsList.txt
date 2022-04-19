@@ -1,0 +1,31 @@
+Parts List for F4Lite THT V1.1
+
+Through-hole parts:
+
+Some 2.54mm header strip (optional, could hard wire 'USE_TPWR' jumper and hard wire the LED)
+A 2.54mm jumper (If using header strip for the USE_TPWR jumper, this is required)
+0ZRR0050FF1E fuse, x1
+SB130-T diodes, x2 (any schottky with 800mA+ rating ought to be fine)
+LD1117V adjustable linear regulator x1
+MFS1/4DCT52R1200F 120 ohm resistor for position R2, x1
+MFR-25FBF52-154R 154 ohm resistor for position R1, x1
+^  These resistor *values* are non-negotiable, but their physical sizing can differ
+470 Ohm resistor for LED, x1  (bought on eBay, precision doesn't matter)
+4610X-101-111LF 110 ohm resistor network, x2
+^ Can grab some 20 pin DIP chip sockets and chop in half to use as sockets for the resistor nets
+Berg Floppy connector, TE Connectivity 171826-4
+50 pin SCSI connector, or male 2x25 2.54mm header: Must be straight-out only
+^ For the SCSI connector, there are a ton of options:
+* 3M 30350-6002HB (straight)
+* https://www.aliexpress.com/item/4000284180928.html
+
+Microcontroller Module:
+STM32F401 "Green Pill", this is the one you're looking for: https://stm32-base.org/boards/STM32F401CCU6-STM32-Mini-F401
+* Search Amazon or eBay for "STM32F401"
+* https://www.aliexpress.com/item/1005001639712812.html
+
+Surface-Mount parts:
+Three 1206 size 22uF capacitors, 10+ volt rating (higher voltage rating is better, I used 25V)
+Molex 105162-0001 MicroSD Card Slot
+Four 0805 size 4.7uF capacitors, 10+ volt rating (higher voltage rating is better, I do 16+)
+* Generally speaking any value from 0.1uF to 4.7uF is fine for these.  They are just for extra decoupling.
