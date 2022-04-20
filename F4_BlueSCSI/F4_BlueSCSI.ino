@@ -56,9 +56,6 @@
 #define XCVR             0  // 0 for standard mode
                             // 1 for transceiver hardware
 
-#define READ_SPEED_OPTIMIZE  1  // Faster reads
-#define WRITE_SPEED_OPTIMIZE 1  // Speeding up writes
-
 // SCSI config
 #define NUM_SCSIID  7          // Maximum number of supported SCSI-IDs (The minimum is 0)
 #define NUM_SCSILUN 2          // Maximum number of LUNs supported     (The minimum is 0)
@@ -926,22 +923,6 @@ inline void writeHandshake(byte d)
   while( SCSI_IN(vACK));
 }
 
-/*
- * Data in phase.
- *  Send len bytes of data array p.
- */
-void writeDataPhase(int len, const byte* p)
-{
-  LOGN("DATAIN PHASE");
-  SCSI_OUT(vMSG,inactive) //  gpio_write(MSG, low);
-  SCSI_OUT(vCD ,inactive) //  gpio_write(CD, low);
-  SCSI_OUT(vIO ,  active) //  gpio_write(IO, high);
-  for (int i = 0; i < len; i++) {
-    writeHandshake(p[i]);
-  }
-}
-
-#if READ_SPEED_OPTIMIZE
 #pragma GCC push_options
 #pragma GCC optimize ("-Os")
 /*
@@ -1012,9 +993,22 @@ void writeDataLoop(uint32_t blocksize)
   WAIT_ACK_INACTIVE();
 }
 #pragma GCC pop_options
-#endif
 
-/* 
+/*
+ * Data in phase.
+ *  Send len bytes of data array p.
+ */
+void writeDataPhase(int len, const byte* p)
+{
+  LOGN("DATAIN PHASE");
+  SCSI_PHASE_CHANGE(SCSI_PHASE_DATAIN);
+  // Bus settle delay 400ns. Following code was measured at 800ns before REQ asserted. STM32F103.
+  SCSI_DB_OUTPUT()
+  writeDataLoop(len, p);
+  SCSI_DB_INPUT()
+}
+
+/*
  * Data in phase.
  *  Send len block while reading from SD card.
  */
@@ -1036,13 +1030,7 @@ void writeDataPhaseSD(uint32_t adds, uint32_t len)
     m_img->m_file.read(m_buf, m_img->m_blocksize);
     enableResetJmp();
 
-#if READ_SPEED_OPTIMIZE
-    writeDataLoop(m_img->m_blocksize);
-#else
-    for(int j = 0; j < m_img->m_blocksize; j++) {
-      writeHandshake(m_buf[j]);
-    }
-#endif
+    writeDataLoop(m_img->m_blocksize, m_buf);
   }
   SCSI_DB_INPUT()
 #if XCVR == 1
@@ -1050,21 +1038,6 @@ void writeDataPhaseSD(uint32_t adds, uint32_t len)
 #endif
 }
 
-/*
- * Data out phase.
- *  len block read
- */
-void readDataPhase(int len, byte* p)
-{
-  LOGN("DATAOUT PHASE");
-  SCSI_OUT(vMSG,inactive) //  gpio_write(MSG, low);
-  SCSI_OUT(vCD ,inactive) //  gpio_write(CD, low);
-  SCSI_OUT(vIO ,inactive) //  gpio_write(IO, low);
-  for(uint32_t i = 0; i < len; i++)
-    p[i] = readHandshake();
-}
-
-#if WRITE_SPEED_OPTIMIZE
 #pragma GCC push_options
 #pragma GCC optimize ("-Os")
     
@@ -1105,7 +1078,18 @@ void readDataLoop(uint32_t blockSize)
   WAIT_ACK_INACTIVE();
 }
 #pragma GCC pop_options
-#endif
+
+/*
+ * Data out phase.
+ *  len block read
+ */
+void readDataPhase(int len, byte* p)
+{
+  LOGN("DATAOUT PHASE");
+  SCSI_PHASE_CHANGE(SCSI_PHASE_DATAOUT);
+  // Bus settle delay 400ns. The following code was measured at 450ns before REQ asserted. STM32F103.
+  readDataLoop(len, p);
+}
 
 /*
  * Data out phase.
@@ -1123,13 +1107,7 @@ void readDataPhaseSD(uint32_t adds, uint32_t len)
   m_img->m_file.seekSet(pos);
   for(uint32_t i = 0; i < len; i++) {
     m_resetJmp = true;
-#if WRITE_SPEED_OPTIMIZE
-    readDataLoop(m_img->m_blocksize);
-#else
-    for(int j = 0; j <  m_img->m_blocksize; j++) {
-      m_buf[j] = readHandshake();
-    }
-#endif
+    readDataLoop(m_img->m_blocksize, m_buf);
     m_resetJmp = false;
     m_img->m_file.write(m_buf, m_img->m_blocksize);
     // If a reset happened while writing, break and let the flush happen before it is handled.
@@ -1156,13 +1134,7 @@ void verifyDataPhaseSD(uint32_t adds, uint32_t len)
   uint64_t pos = (uint64_t)adds * m_img->m_blocksize;
   m_img->m_file.seekSet(pos);
   for(uint32_t i = 0; i < len; i++) {
-#if WRITE_SPEED_OPTIMIZE
-    readDataLoop(m_img->m_blocksize);
-#else
-    for(int j = 0; j <  m_img->m_blocksize; j++) {
-      m_buf[j] = readHandshake();
-    }
-#endif
+    readDataLoop(m_img->m_blocksize, m_buf);
     // This has just gone through the transfer to make things work, a compare would go here.
   }
 }
