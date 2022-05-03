@@ -948,7 +948,7 @@ inline void writeHandshake(byte d)
 #if XCVR == 0
 void writeDataLoop(uint32_t blocksize, const byte* srcptr) __attribute__ ((aligned(8)));
 #endif
-void writeDataLoop(uint32_t blocksize, const byte* srcptr)
+void writeDataLoop(uint32_t blocksize, const byte* srcptr) {
 #define REQ_ON() (PBREG->BSRR = req_rst_bit);
 #define FETCH_BSRR_DB() (bsrr_val = bsrr_tbl[*srcptr++])
 #define REQ_OFF_DB_SET(BSRR_VAL) PBREG->BSRR = BSRR_VAL;
@@ -1095,23 +1095,6 @@ void readDataPhase(int len, byte* p)
   SCSI_PHASE_CHANGE(SCSI_PHASE_DATAOUT);
   // Bus settle delay 400ns. The following code was measured at 450ns before REQ asserted. STM32F103.
   readDataLoop(len, p);
-}
-
-/*
- * Data out phase.
- *  len block read
- */
-void readDataPhase(int len, byte* p)
-{
-  LOGN("DATAOUT PHASE");
-  SCSI_PHASE_CHANGE(SCSI_PHASE_DATAOUT);
-  // Bus settle delay 400ns. The following code was measured at 450ns before REQ asserted. STM32F103.
-#if WRITE_SPEED_OPTIMIZE
-  readDataLoop(len, p);
-#else
-  for(uint32_t i = 0; i < len; i++)
-    p[i] = readHandshake();
-#endif
 }
 
 /*
@@ -1499,7 +1482,7 @@ void loop()
     int syncperiod = 50;
     int syncoffset = 0;
     int msc = 0;
-    while(isHigh(digitalRead(ATN)) && loopWait < 255) {
+    while(isHigh(digitalRead(ATN)) && msc < 255) {
       m_msb[msc++] = readHandshake();
     }
     for(int i = 0; i < msc; i++) {
