@@ -327,9 +327,9 @@ uint32_t db_bsrr[256];
 
 // Log File
 #if XCVR == 1
-#define VERSION "1.1-SNAPSHOT-2022-04-15-F4-XCVR"
+#define VERSION "1.1-SNAPSHOT-2022-05-13-F4-XCVR"
 #else
-#define VERSION "1.1-SNAPSHOT-2022-04-15-F4"
+#define VERSION "1.1-SNAPSHOT-2022-05-13-F4"
 #endif
 #define LOG_FILENAME "LOG.txt"
 FsFile LOG_FILE;
