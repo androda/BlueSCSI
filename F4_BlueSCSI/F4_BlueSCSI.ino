@@ -244,9 +244,9 @@ bool          tr_taDir = false;        // Target Transceiver Pins, BSY, MSG, CD,
 // HDD image
 typedef struct hddimg_struct
 {
-	FsFile      m_file;                 // File object
-	uint64_t    m_fileSize;             // File size
-	size_t      m_blocksize;            // SCSI BLOCK size
+  FsFile      m_file;                 // File object
+  uint64_t    m_fileSize;             // File size
+  size_t      m_blocksize;            // SCSI BLOCK size
 }HDDIMG;
 HDDIMG  img[NUM_SCSIID][NUM_SCSILUN]; // Maximum number
 
