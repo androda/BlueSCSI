@@ -1762,9 +1762,6 @@ void loop()
   case SCSI_START_STOP_UNIT: // TODO: Implement me!
     LOGN("[StartStopUnit]");
     break;
-  case SCSI_PREVENT_ALLOW_REMOVAL: // TODO: Implement me!
-    LOGN("[PreAllowMed.Removal]");
-    break;
   case SCSI_READ_CAPACITY:
     LOGN("[ReadCapacity]");
     m_sts |= onReadCapacityCommand(cmd[8]);
@@ -1774,6 +1771,7 @@ void loop()
     m_sts |= onReadCommand(((uint32_t)cmd[2] << 24) | ((uint32_t)cmd[3] << 16) | ((uint32_t)cmd[4] << 8) | cmd[5], ((uint32_t)cmd[7] << 8) | cmd[8]);
     break;
   case SCSI_WRITE10:
+  case SCSI_WRITE_AND_VERIFY:
     LOGN("[Write10]");
     m_sts |= onWriteCommand(((uint32_t)cmd[2] << 24) | ((uint32_t)cmd[3] << 16) | ((uint32_t)cmd[4] << 8) | cmd[5], ((uint32_t)cmd[7] << 8) | cmd[8]);
     break;
@@ -1805,6 +1803,11 @@ void loop()
     break;
   case SCSI_SEND_DIAG:
     m_sts |= onSendDiagnostic(cmd[1]);
+    break;
+  case SCSI_LOCK_UNLOCK_CACHE: // Commands we dont have anything to do but can safely respond GOOD.
+  case SCSI_PREFETCH:          // In the future we could implement something to mimic these.
+  case SCSI_PREVENT_ALLOW_REMOVAL:
+    m_sts |= SCSI_STATUS_GOOD;
     break;
   default:
     LOGN("[*Unknown]");
