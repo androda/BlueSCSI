@@ -92,14 +92,8 @@ byte          m_msb[256];                // Command storage bytes
 SCSI_DEVICE scsi_device_list[NUM_SCSIID][NUM_SCSILUN]; // Maximum number
 SCSI_INQUIRY_DATA default_hdd, default_optical;
 
-
-
-#define MAX_SCSI_COMMAND  0xff
-
 // function table
 byte (*scsi_command_table[MAX_SCSI_COMMAND])(SCSI_DEVICE *dev, const byte *cdb);
-
-#define SCSI_COMMAND_HANDLER(x) static byte x(SCSI_DEVICE *dev, const byte *cdb)
 
 // scsi command functions
 SCSI_COMMAND_HANDLER(onUnimplemented);
