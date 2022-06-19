@@ -54,7 +54,7 @@
                                 // 1: Debug information output to USB Serial
                                 // 2: Debug information output to LOG.txt (slow)
 
-#define XCVR             0  // 0 for standard mode
+#define XCVR             1  // 0 for standard mode
                             // 1 for transceiver hardware
 
 // SCSI config
@@ -1023,13 +1023,13 @@ void writeDataPhase(int len, const byte* p)
   LOGN("DATAIN PHASE");
   SCSI_PHASE_CHANGE(SCSI_PHASE_DATAIN);
   // Bus settle delay 400ns. Following code was measured at 800ns before REQ asserted. STM32F103.
-#ifdef XCVR
+#if XCVR == 1
   TRANSCEIVER_IO_SET(vTR_DBP,TR_OUTPUT)
 #endif
   SCSI_DB_OUTPUT()
   writeDataLoop(len, p);
   SCSI_DB_INPUT()
-#ifdef XCVR
+#if XCVR == 1
   TRANSCEIVER_IO_SET(vTR_DBP,TR_INPUT)
 #endif
 }
@@ -1047,7 +1047,7 @@ void writeDataPhaseSD(uint32_t adds, uint32_t len)
   uint64_t pos = (uint64_t)adds * m_img->m_blocksize;
   m_img->m_file.seekSet(pos);
 
-#ifdef XCVR
+#if XCVR == 1
   TRANSCEIVER_IO_SET(vTR_DBP,TR_OUTPUT)
 #endif
   SCSI_DB_OUTPUT()
