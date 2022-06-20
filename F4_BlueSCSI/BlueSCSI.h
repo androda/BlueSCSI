@@ -23,6 +23,17 @@
 #define ERROR_FALSE_INIT  3
 #define ERROR_NO_SDCARD   5
 
+enum SCSI_DEVICE_TYPE
+{
+  SCSI_DEVICE_HDD,
+  SCSI_DEVICE_OPTICAL,
+};
+
+#define CDROM_RAW_SECTORSIZE    2352
+#define CDROM_COMMON_SECTORSIZE 2048
+
+#define MAX_SCSI_COMMAND  0xff
+#define SCSI_COMMAND_HANDLER(x) static byte x(SCSI_DEVICE *dev, const byte *cdb)
 
 #if DEBUG == 1
 #define serial Serial2 // PA2 TX, PA3 RX
@@ -272,14 +283,7 @@ uint32_t db_bsrr[256];
 // #define GET_CDB6_LBA(x) ((x[2] & 01f) << 16) | (x[3] << 8) | x[4]
 #define READ_DATA_BUS() (byte)((~(uint32_t)GPIOB->regs->IDR)>>8)
 
-enum SCSI_DEVICE_TYPE
-{
-  SCSI_DEVICE_HDD,
-  SCSI_DEVICE_OPTICAL,
-};
 
-#define CDROM_RAW_SECTORSIZE    2352
-#define CDROM_COMMON_SECTORSIZE 2048
 
 struct SCSI_INQUIRY_DATA
 {
@@ -332,6 +336,7 @@ typedef __attribute__((aligned(4))) struct _SCSI_DEVICE
 	FsFile        *m_file;                 // File object
 	uint64_t      m_fileSize;             // File size
 	uint16_t      m_blocksize;            // SCSI BLOCK size
+  uint16_t      m_rawblocksize;
   uint8_t       m_type;                 // SCSI device type
   uint32_t      m_blockcount;           // blockcount
   bool          m_raw;                  // Raw disk
@@ -339,6 +344,7 @@ typedef __attribute__((aligned(4))) struct _SCSI_DEVICE
   uint8_t       m_senseKey;               // Sense key
   uint16_t      m_additional_sense_code;  // ASC/ASCQ 
   bool          m_mode2;                  // MODE2 CDROM
+  uint8_t       m_offset;                 // ISO offset for missing sync header
 } SCSI_DEVICE;
 
 
