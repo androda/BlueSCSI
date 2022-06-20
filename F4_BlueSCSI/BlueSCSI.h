@@ -19,24 +19,30 @@
 // HDD format
 #define MAX_BLOCKSIZE 4096     // Maximum BLOCK size
 
-// SDFAT
-#define SD1_CONFIG SdSpiConfig(PA4, DEDICATED_SPI, SD_SCK_MHZ(SPI_FULL_SPEED), &SPI)
-
 // LED ERRORS
 #define ERROR_FALSE_INIT  3
 #define ERROR_NO_SDCARD   5
 
 
-#if DEBUG
-#define LOG(XX)     Serial.print(XX)
-#define LOGHEX(XX)  Serial.print(XX, HEX)
-#define LOGN(XX)    Serial.println(XX)
-#define LOGHEXN(XX) Serial.println(XX, HEX)
+#if DEBUG == 1
+#define serial Serial2 // PA2 TX, PA3 RX
+#define LOG(XX)      serial.print(XX)
+#define LOGHEX(XX)   serial.print(XX, HEX)
+#define LOGDEC(XX)   serial.print(XX, DEC)
+#define LOGBIN(XX)   serial.print(XX, BIN)
+#define LOGN(XX)     serial.println(XX)
+#define LOGHEXN(XX)  serial.println(XX, HEX)
+#define LOGDECN(XX)  serial.println(XX, DEC)
+#define LOGBIN_N(XX) serial.println(XX, BIN)
 #else
-#define LOG(XX)     //Serial.print(XX)
-#define LOGHEX(XX)  //Serial.print(XX, HEX)
-#define LOGN(XX)    //Serial.println(XX)
-#define LOGHEXN(XX) //Serial.println(XX, HEX)
+#define LOG(XX)       //serial.print(XX)
+#define LOGHEX(XX)    //serial.print(XX, HEX)
+#define LOGDEC(XX)    //serial.print(XX, DEC)
+#define LOGBIN(XX)    //serial.print(XX, BIN)
+#define LOGN(XX)      //serial.println(XX)
+#define LOGHEXN(XX)   //serial.println(XX, HEX)
+#define LOGDECN(XX)   //serial.println(XX, DEC)
+#define LOGBIN_N(XX)  //serial.println(XX, BIN)
 #endif
 
 #define active   1
@@ -47,19 +53,16 @@
 #define isHigh(XX) ((XX) == high)
 #define isLow(XX) ((XX) != high)
 
-#define gpio_mode(pin,val) gpio_set_mode(PIN_MAP[pin].gpio_device, PIN_MAP[pin].gpio_bit, val);
-#define gpio_write(pin,val) gpio_write_bit(PIN_MAP[pin].gpio_device, PIN_MAP[pin].gpio_bit, val)
-#define gpio_read(pin) gpio_read_bit(PIN_MAP[pin].gpio_device, PIN_MAP[pin].gpio_bit)
-
 //#define DB0       PB8     // SCSI:DB0
 //#define DB1       PB9     // SCSI:DB1
 //#define DB2       PB10    // SCSI:DB2
-//#define DB3       PB11    // SCSI:DB3
+//#define DB3       PB2     // SCSI:DB3
 //#define DB4       PB12    // SCSI:DB4
 //#define DB5       PB13    // SCSI:DB5
 //#define DB6       PB14    // SCSI:DB6
 //#define DB7       PB15    // SCSI:DB7
 //#define DBP       PB0     // SCSI:DBP
+
 #define ATN       PA8      // SCSI:ATN
 #define BSY       PA9      // SCSI:BSY
 #define ACK       PA10     // SCSI:ACK
@@ -70,18 +73,12 @@
 #define REQ       PB6      // SCSI:REQ
 #define IO        PB7      // SCSI:I/O
 
-#define SD_CS     PA4      // SDCARD:CS
 #define LED       PC13     // LED
-#define LED2      PA0      // External LED
+#define LED2      PB1      // Driven LED
 
 // Image Set Selector
-#ifdef XCVR
 #define IMAGE_SELECT1   PC14
 #define IMAGE_SELECT2   PC15
-#else
-#define IMAGE_SELECT1   PA1
-#define IMAGE_SELECT2   PB1
-#endif
 
 // GPIO register port
 #define PAREG GPIOA->regs
@@ -89,15 +86,16 @@
 #define PCREG GPIOC->regs
 
 // LED control
-#define LED_ON()  PCREG->BSRR = 0b00100000000000000000000000000000; PAREG->BSRR = 0b00000000000000000000000000000001;
-#define LED_OFF() PCREG->BSRR = 0b00000000000000000010000000000000; PAREG->BSRR = 0b00000000000000010000000000000000;
+#define LED_ON()       PCREG->BSRR = 0x20000000; PBREG->BSRR = 0x00000002;
+#define LED_OFF()      PCREG->BSRR = 0x00002000; PBREG->BSRR = 0x00020000;
 
 // Virtual pin (Arduio compatibility is slow, so make it MCU-dependent)
 #define PA(BIT)       (BIT)
 #define PB(BIT)       (BIT+16)
+
 // Virtual pin decoding
-#define GPIOREG(VPIN)    ((VPIN)>=16?PBREG:PAREG)
-#define BITMASK(VPIN) (1<<((VPIN)&15))
+#define GPIOREG(VPIN)     ((VPIN) >= 16 ? PBREG : PAREG)
+#define BITMASK(VPIN)     (1 << ((VPIN) & 15))
 
 #define vATN       PA(8)      // SCSI:ATN
 #define vBSY       PA(9)      // SCSI:BSY
@@ -111,10 +109,12 @@
 #define vSD_CS     PA(4)      // SDCARD:CS
 
 // SCSI output pin control: opendrain active LOW (direct pin drive)
-#define SCSI_OUT(VPIN,ACTIVE) { GPIOREG(VPIN)->BSRR = BITMASK(VPIN)<<((ACTIVE)?16:0); }
+// inactive = physical high, logical 0
+// active = physical low, logical 1
+#define SCSI_OUT(VPIN,ACTIVE) { GPIOREG(VPIN)->BSRR = BITMASK(VPIN) << ((ACTIVE) ? 16 : 0); }
 
-// SCSI input pin check (inactive=0,avtive=1)
-#define SCSI_IN(VPIN) ((~GPIOREG(VPIN)->IDR>>(VPIN&15))&1)
+// SCSI input pin check (inactive=0,active=1)
+#define SCSI_IN(VPIN) ((~GPIOREG(VPIN)->IDR >> (VPIN & 15)) & 1)
 
 #define NOP(x) for(unsigned _nopcount = x; _nopcount; _nopcount--) { asm("NOP"); }
 
@@ -158,14 +158,23 @@
 
 #define SCSI_PHASE_CHANGE(MASK) { PBREG->BSRR = (MASK); }
 
-#ifdef XCVR
-#define TR_TARGET        PA1   // Target Transceiver Control Pin
-#define TR_DBP           PA2   // Data Pins Transceiver Control Pin
-#define TR_INITIATOR     PA3   // Initiator Transciever Control Pin
+static const uint32_t scsiDbOutputRegOr = 0x55150011;
+static const uint32_t scsiDbInputOutputAnd = 0x00C0FFCC;
+// Put DB and DP in output mode
+#define SCSI_DB_OUTPUT() { PBREG->MODER = (PBREG->MODER & scsiDbInputOutputAnd) | scsiDbOutputRegOr; }
 
-#define vTR_TARGET       PA(1) // Target Transceiver Control Pin
-#define vTR_DBP          PA(2) // Data Pins Transceiver Control Pin
-#define vTR_INITIATOR    PA(3) // Initiator Transciever Control Pin
+// Put DB and DP in input mode
+#define SCSI_DB_INPUT()  { PBREG->MODER = (PBREG->MODER & scsiDbInputOutputAnd); }
+
+#if XCVR == 1
+
+#define TR_TARGET        PA0   // Target Transceiver Control Pin
+#define TR_DBP           PA1   // Data Pins Transceiver Control Pin
+#define TR_INITIATOR     PA2   // Initiator Transciever Control Pin
+
+#define vTR_TARGET       PA(0) // Target Transceiver Control Pin
+#define vTR_DBP          PA(1) // Data Pins Transceiver Control Pin
+#define vTR_INITIATOR    PA(2) // Initiator Transciever Control Pin
 
 #define TR_INPUT 1
 #define TR_OUTPUT 0
@@ -173,43 +182,33 @@
 // Transceiver control definitions
 #define TRANSCEIVER_IO_SET(VPIN,TR_INPUT) { GPIOREG(VPIN)->BSRR = BITMASK(VPIN) << ((TR_INPUT) ? 16 : 0); }
 
+static const uint32_t SCSI_TARGET_PORTA_AND = 0xFFF3FFFF;  // Sets input mode when AND-ed against MODER
+static const uint32_t SCSI_TARGET_PORTA_OR = 0x00040000;  // Sets output mode when AND+OR against MODER
+static const uint32_t SCSI_TARGET_PORTB_AND = 0xFFFF033F;  // Sets input mode when AND-ed against MODER
+static const uint32_t SCSI_TARGET_PORTB_OR = 0x00005440;  // Sets output mode when AND+OR against MODER
+
 // Turn on the output only for BSY
-#define SCSI_BSY_ACTIVE()      {  gpio_mode(BSY, GPIO_OUTPUT_PP); SCSI_OUT(vBSY, active) }
+#define SCSI_BSY_ACTIVE()      { PAREG->MODER = (PAREG->MODER & SCSI_TARGET_PORTA_AND) | SCSI_TARGET_PORTA_OR; PBREG->MODER = (PBREG->MODER & SCSI_TARGET_PORTB_AND) | SCSI_TARGET_PORTB_OR; SCSI_OUT(vBSY, active) }
 
-#define SCSI_TARGET_ACTIVE()   { gpio_mode(REQ, GPIO_OUTPUT_PP); gpio_mode(MSG, GPIO_OUTPUT_PP); gpio_mode(CD, GPIO_OUTPUT_PP); gpio_mode(IO, GPIO_OUTPUT_PP); gpio_mode(BSY, GPIO_OUTPUT_PP);  TRANSCEIVER_IO_SET(vTR_TARGET,TR_OUTPUT);}
 // BSY,REQ,MSG,CD,IO Turn off output, BSY is the last input
-#define SCSI_TARGET_INACTIVE() { pinMode(REQ, INPUT); pinMode(MSG, INPUT); pinMode(CD, INPUT); pinMode(IO, INPUT); pinMode(BSY, INPUT); TRANSCEIVER_IO_SET(vTR_TARGET,TR_INPUT); }
+#define SCSI_TARGET_INACTIVE() { PAREG->MODER = (PAREG->MODER & SCSI_TARGET_PORTA_AND); PBREG->MODER = (PBREG->MODER & SCSI_TARGET_PORTB_AND); TRANSCEIVER_IO_SET(vTR_TARGET,TR_INPUT); }
 
-#define DB_MODE_OUT 1  // push-pull mode
-#define DB_MODE_IN  4  // floating inputs
+#define SCSI_TARGET_ACTIVE()   { PAREG->MODER = (PAREG->MODER & SCSI_TARGET_PORTA_AND) | SCSI_TARGET_PORTA_OR; PBREG->MODER = (PBREG->MODER & SCSI_TARGET_PORTB_AND) | SCSI_TARGET_PORTB_OR; }
 
 #else
 
-// GPIO mode
-// IN , FLOAT      : 4
-// IN , PU/PD      : 8
-// OUT, PUSH/PULL  : 3
-// OUT, OD         : 1
-#define DB_MODE_OUT 3
-//#define DB_MODE_OUT 7
-#define DB_MODE_IN  8
-
-
 // Turn on the output only for BSY
-#define SCSI_BSY_ACTIVE()      { gpio_mode(BSY, GPIO_OUTPUT_OD); SCSI_OUT(vBSY,  active) }
-// BSY,REQ,MSG,CD,IO Turn on the output (no change required for OD)
-#define SCSI_TARGET_ACTIVE()   { if (DB_MODE_OUT != 7) gpio_mode(REQ, GPIO_OUTPUT_PP); }
+#define SCSI_BSY_ACTIVE()      { pinMode(BSY, OUTPUT_OPEN_DRAIN); SCSI_OUT(vBSY,  active) }
+
 // BSY,REQ,MSG,CD,IO Turn off output, BSY is the last input
-#define SCSI_TARGET_INACTIVE() { if (DB_MODE_OUT == 7) SCSI_OUT(vREQ,inactive) else { if (DB_MODE_IN == 8) gpio_mode(REQ, GPIO_INPUT_PU) else gpio_mode(REQ, GPIO_INPUT_FLOATING)} PBREG->BSRR = 0b000000000000000011101000; SCSI_OUT(vBSY,inactive); gpio_mode(BSY, GPIO_INPUT_PU); }
+#define SCSI_TARGET_INACTIVE() { SCSI_OUT(vREQ,inactive); SCSI_PHASE_CHANGE(SCSI_PHASE_DATAOUT); SCSI_OUT(vBSY,inactive); pinMode(BSY, INPUT); }
+
+// BSY,REQ,MSG,CD,IO Turn on the output (no change required for OD)
+#define SCSI_TARGET_ACTIVE()   { }
 
 #endif
 
-// Put DB and DP in output mode
-#define SCSI_DB_OUTPUT() { PBREG->CRL=(PBREG->CRL &0xfffffff0)|DB_MODE_OUT; PBREG->CRH = 0x11111111*DB_MODE_OUT; }
-// Put DB and DP in input mode
-#define SCSI_DB_INPUT()  { PBREG->CRL=(PBREG->CRL &0xfffffff0)|DB_MODE_IN ; PBREG->CRH = 0x11111111*DB_MODE_IN; }
-
-// HDDiamge file
+// HDDimage file
 #define HDIMG_ID_POS  2                 // Position to embed ID number
 #define HDIMG_LUN_POS 3                 // Position to embed LUN numbers
 #define HDIMG_BLK_POS 5                 // Position to embed block size numbers
@@ -218,34 +217,57 @@
 /*
  *  Data byte to BSRR register setting value and parity table
 */
+/**
+ * BSRR register generator
+ * Totally configurable for which pin is each data bit, which pin is PTY, and which pin is REQ.
+ * The only requirement is that data and parity pins are in the same GPIO block.
+ * REQ can be specified as -1 to ignore, as it doesn't have to be in the same GPIO block.
+ * This is dramatically slower than the original static array, but is easier to configure
+ */
+static uint32_t genBSRR(uint32_t data) {
+  uint8_t masks[] = {0UL, 1UL, 2UL, 3UL, 4UL, 5UL, 6UL, 7UL};
+  // Positions array indicates which bit position each data bit goes in
+  // positions[0] is for data bit 0, position[1] for data bit 1, etc
+  // DB0, DB1, DB2, DB4, DB5, DB6, DB7 in order
+  uint8_t positions[] = {8UL, 9UL, 10UL, 2UL, 12UL, 13UL, 14UL, 15UL};
+  uint8_t dbpPosition = 0UL;
+  int reqPosition = 6;
+  uint8_t bitsAsserted = 0;
 
-// Parity bit generation
-#define PTY(V)   (1^((V)^((V)>>1)^((V)>>2)^((V)>>3)^((V)>>4)^((V)>>5)^((V)>>6)^((V)>>7))&1)
+  uint32_t output = 0x00000000;
+  for (int i = 0; i < 8; i++) {
+    if (data & (0x1 << masks[i])) {
+      // There's a one in this bit position, BSRR reset
+      output |= 0x1 << (positions[i] + 16);
+      bitsAsserted++;
+    } else {
+      // There's a 0 in this bit position, BSRR set high
+      output |= (0x1 << positions[i]);
+    }
+  }
 
-// Data byte to BSRR register setting value conversion table
-// BSRR[31:24] =  DB[7:0]
-// BSRR[   16] =  PTY(DB)
-// BSRR[15: 8] = ~DB[7:0]
-// BSRR[    0] = ~PTY(DB)
+  // Set the parity bit
+  if (bitsAsserted % 2 == 0) {
+    // Even number of bits asserted, Parity asserted (0, low, BSRR reset)
+    output |= 0x01 << (dbpPosition + 16);
+  } else {
+    // Odd number of bits asserted, Parity deasserted (1, high, BSRR set)
+    output |= 0x01 << dbpPosition;
+  }
 
-// Set DBP, set REQ = inactive
-#define DBP(D)    ((((((uint32_t)(D)<<8)|PTY(D))*0x00010001)^0x0000ff01)|BITMASK(vREQ))
-//#define DBP(D)    ((((((uint32_t)(D)<<8)|PTY(D))*0x00010001)^0x0000ff01))
+  // BSRR set REQ if specified
+  // Only set > 0 if it's in the same GPIO block as DB and DBP
+  if (reqPosition >= 0) {
+    output |= 0x01 << reqPosition;
+  }
 
-
-//#define DBP8(D)   DBP(D),DBP(D+1),DBP(D+2),DBP(D+3),DBP(D+4),DBP(D+5),DBP(D+6),DBP(D+7)
-//#define DBP32(D)  DBP8(D),DBP8(D+8),DBP8(D+16),DBP8(D+24)
+  return output;
+}
 
 // BSRR register control value that simultaneously performs DB set, DP set, and REQ = H (inactrive)
 uint32_t db_bsrr[256];
 // Parity bit acquisition
 #define PARITY(DB) (db_bsrr[DB]&1)
-
-// Macro cleaning
-//#undef DBP32
-//#undef DBP8
-//#undef DBP
-//#undef PTY
 
 // #define GET_CDB6_LBA(x) ((x[2] & 01f) << 16) | (x[3] << 8) | x[4]
 #define READ_DATA_BUS() (byte)((~(uint32_t)GPIOB->regs->IDR)>>8)

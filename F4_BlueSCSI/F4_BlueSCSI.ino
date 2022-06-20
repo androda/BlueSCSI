@@ -42,14 +42,18 @@
 #include <setjmp.h>
 #include <libmaple/exti.h>
 
-#define DEBUG            0      // 0:No debug information output
+#define DEBUG            1      // 0:No debug information output
                                 // 1: Debug information output to USB Serial
                                 // 2: Debug information output to LOG.txt (slow)
 #define XCVR             0      // 0 for standard mode
                                 // 1 for transceiver hardware
 
 // Log File
-#define VERSION "1.1-SNAPSHOT-20220522"
+#if XCVR == 1
+#define VERSION "1.1-SNAPSHOT-2022-05-22-F4-XCVR"
+#else
+#define VERSION "1.1-SNAPSHOT-2022-05-22-F4"
+#endif
 #define LOG_FILENAME "LOG.txt"
 
 #include "BlueSCSI.h"
@@ -83,11 +87,8 @@ SCSI_DEVICE scsi_device_list[NUM_SCSIID][MAX_SCSILUN]; // Maximum number
 static byte onUnimplemented(SCSI_DEVICE *dev, const byte *cdb)
 {
   // does nothing!
-  if(Serial)
-  {
-    Serial.print("Unimplemented SCSI command: ");
-    Serial.println(cdb[0], 16);
-  }
+  LOG("Unimplemented SCSI command: ");
+  LOGHEXN(cdb[0]);
 
   dev->m_senseKey = SCSI_SENSE_ILLEGAL_REQUEST;
   dev->m_additional_sense_code = SCSI_ASC_INVALID_OPERATION_CODE;
@@ -299,8 +300,8 @@ void setup()
   scsi_command_table[SCSI_READ_DEFECT_DATA] = onReadDefectData;
 
   // Serial initialization
-#if DEBUG > 0
-  Serial.begin(9600);
+#if DEBUG == 1
+  serial.begin(9600);
   // If using a USB->TTL monitor instead of USB serial monitor - you can uncomment this.
   //while (!Serial);
 #endif
@@ -397,7 +398,7 @@ void setup()
 
   if(!sd_ready) {
 #if DEBUG > 0
-    Serial.println("SD initialization failed!");
+    LOG("SD initialization failed!");
 #endif
     flashError(ERROR_NO_SDCARD);
   }
@@ -1083,13 +1084,13 @@ static byte onRead10(SCSI_DEVICE *dev, const byte *cdb)
 {
   unsigned adds = ((uint32_t)cdb[2] << 24) | ((uint32_t)cdb[3] << 16) | ((uint32_t)cdb[4] << 8) | cdb[5];
   unsigned len = ((uint32_t)cdb[7] << 8) | cdb[8];
-  /*
-  LOGN("onRead10");
-  LOG("-R ");
+  
+  LOG("onRead10");
+  LOG("/");
   LOGHEX(adds);
   LOG(":");
   LOGHEXN(len);
-  */
+  
   byte sts = checkBlockCommand(dev, adds, len);
   if (sts) {
     return sts;
@@ -1677,7 +1678,8 @@ void loop()
   LED_OFF();
 
 Status:
-  LOGN("Sts");
+  LOG("Sts:");
+  LOGHEXN(m_sts);
   SCSI_PHASE_CHANGE(SCSI_PHASE_STATUS);
   // Bus settle delay 400ns built in to writeHandshake
   writeHandshake(m_sts);
