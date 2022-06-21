@@ -50,9 +50,9 @@
 
 // Log File
 #if XCVR == 1
-#define VERSION "1.1-SNAPSHOT-2022-05-22-F4-XCVR"
+#define VERSION "1.1-SNAPSHOT-2022-06-21-F4-XCVR"
 #else
-#define VERSION "1.1-SNAPSHOT-2022-05-22-F4"
+#define VERSION "1.1-SNAPSHOT-2022-06-21-F4"
 #endif
 #define LOG_FILENAME "LOG.txt"
 
@@ -385,13 +385,14 @@ void setup()
   // Try Full and half clock speeds.
   LED_ON();
   int mhz = 0;
-  if (SD.begin(SdSpiConfig(SS, DEDICATED_SPI, SD_SCK_MHZ(mhz))))
-  {
-    mhz = 50;
-  }
-  else if (SD.begin(SdSpiConfig(SS, DEDICATED_SPI, SD_SCK_MHZ(mhz))))
-  {
-    mhz = 25;
+  // Try each speed bucket a few times, and go way down for very old SD cards
+  // Most will initialize immediately at the highest speed
+  int speedsToTry[] = {50, 49, 43, 42, 25, 24, 17, 16, 8, 7, 5, 4, 3, 1 };
+  for (int i = 0; i < 14; i++) {
+    if(SD.begin(SdSpiConfig(SS, DEDICATED_SPI, SD_SCK_MHZ(speedsToTry[i])))) {
+      mhz = speedsToTry[i];
+      break;
+    }
   }
   LED_OFF();
 
@@ -603,8 +604,8 @@ void initFileLog(int success_mhz) {
   LOG_FILE.print("SPI speed: ");
   LOG_FILE.print(success_mhz);
   LOG_FILE.println("Mhz");
-  if(success_mhz == 25) {
-    LOG_FILE.println("SPI running at half speed - read https://github.com/erichelgeson/BlueSCSI/wiki/Slow-SPI");
+  if (success_mhz <= 24) {
+    LOG_FILE.println("*** Slow SPI connection to SD card may cause performance degradation");
   }
   LOG_FILE.print("SdFat Max FileName Length: ");
   LOG_FILE.println(MAX_FILE_PATH);
