@@ -389,7 +389,7 @@ void setup()
   {
     mhz = 50;
   }
-  else if (SdSpiConfig(SS, DEDICATED_SPI, SD_SCK_MHZ(mhz))))
+  else if (SD.begin(SdSpiConfig(SS, DEDICATED_SPI, SD_SCK_MHZ(mhz))))
   {
     mhz = 25;
   }
