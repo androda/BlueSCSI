@@ -50,9 +50,9 @@
 
 // Log File
 #if XCVR == 1
-#define VERSION "1.1-SNAPSHOT-2022-06-21-F4-XCVR"
+#define VERSION "1.1-SNAPSHOT-2022-06-27-F4-XCVR"
 #else
-#define VERSION "1.1-SNAPSHOT-2022-06-21-F4"
+#define VERSION "1.1-SNAPSHOT-2022-06-27-F4"
 #endif
 #define LOG_FILENAME "LOG.txt"
 
@@ -537,7 +537,7 @@ void findDriveImages(FsFile root) {
               dev->inquiry_block.response_format = 1;
               dev->inquiry_block.additional_length = 31;
               memcpy(dev->inquiry_block.vendor, "QUANTUM", 7);
-              memcpy(dev->inquiry_block.product, "BLUESCSI F1", 11);
+              memcpy(dev->inquiry_block.product, "F4 BLUESCSI", 11);
               memcpy(dev->inquiry_block.revision, "1.1", 3);
               break;
               
