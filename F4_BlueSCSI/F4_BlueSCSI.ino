@@ -1195,9 +1195,7 @@ byte onVerify(SCSI_DEVICE *dev, const byte *cdb)
       // Data-Out buffer is single logical block for repeated verification.
       len = dev->m_blocksize;
     }
-    LED_ON();
     verifyDataPhaseSD(dev, adds, len);
-    LED_OFF();
   }
   return SCSI_STATUS_GOOD;
 }
