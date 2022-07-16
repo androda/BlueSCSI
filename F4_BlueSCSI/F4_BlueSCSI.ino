@@ -1534,17 +1534,35 @@ void loop()
   m_lun = 0xff;
   SCSI_DEVICE *dev = (SCSI_DEVICE *)0; // HDD image for current SCSI-ID, LUN
 
-  // Wait until RST = H, BSY = H, SEL = L
+  do {} while( !SCSI_IN(vBSY) || SCSI_IN(vRST));
+  // We're in ARBITRATION
+  //LOG(" A:"); LOGHEX(readIO()); LOG(" ");
+  
   do {} while( SCSI_IN(vBSY) || !SCSI_IN(vSEL) || SCSI_IN(vRST));
-
-  // BSY+ SEL-
-  // If the ID to respond is not driven, wait for the next
+  //LOG(" S:"); LOGHEX(readIO()); LOG(" ");
+  // We're in SELECTION
+  
   byte scsiid = readIO() & scsi_id_mask;
-  if((scsiid) == 0) {
+  if(SCSI_IN(vIO) || (scsiid) == 0) {
     delayMicroseconds(1);
     return;
   }
-  LOGN("Selection");
+  // We've been selected
+
+#if XCVR == 1
+  TRANSCEIVER_IO_SET(vTR_TARGET,TR_OUTPUT);
+#endif
+  SCSI_TARGET_ACTIVE()  // (BSY), REQ, MSG, CD, IO output turned on
+
+  // Set BSY to-when selected
+  SCSI_BSY_ACTIVE();     // Turn only BSY output ON, ACTIVE
+
+  // Wait until SEL becomes inactive
+  while(isHigh(gpio_read(SEL))) {}
+  
+  // Ask for a TARGET-ID to respond
+  m_id = 31 - __builtin_clz(scsiid);
+
   m_isBusReset = false;
   if (setjmp(m_resetJmpBuf) == 1) {
     LOGN("Reset, going to BusFree");
@@ -1552,21 +1570,8 @@ void loop()
   }
   enableResetJmp();
   
-#if XCVR == 1
-  TRANSCEIVER_IO_SET(vTR_TARGET,TR_OUTPUT);
-#endif
-  // Set BSY to-when selected
-  SCSI_BSY_ACTIVE();     // Turn only BSY output ON, ACTIVE
-
-  // Ask for a TARGET-ID to respond
-  m_id = 31 - __builtin_clz(scsiid);
-
-  // Wait until SEL becomes inactive
-  while(isHigh(digitalRead(SEL)) && isLow(digitalRead(BSY))) {
-  }
-  
-  //  
-  if(isHigh(digitalRead(ATN))) {
+  // In SCSI-2 this is mandatory, but in SCSI-1 it's optional 
+  if(isHigh(gpio_read(ATN))) {
     SCSI_PHASE_CHANGE(SCSI_PHASE_MESSAGEOUT);
     // Bus settle delay 400ns. Following code was measured at 350ns before REQ asserted. Added another 50ns. STM32F103.
     SCSI_PHASE_CHANGE(SCSI_PHASE_MESSAGEOUT);// 28ns delay STM32F103
