@@ -333,18 +333,18 @@ struct SCSI_INQUIRY_DATA
 // HDD image
 typedef __attribute__((aligned(4))) struct _SCSI_DEVICE
 {
-	FsFile        *m_file;                 // File object
-	uint64_t      m_fileSize;             // File size
-	uint16_t      m_blocksize;            // SCSI BLOCK size
-  uint16_t      m_rawblocksize;
-  uint8_t       m_type;                 // SCSI device type
-  uint32_t      m_blockcount;           // blockcount
-  bool          m_raw;                  // Raw disk
-  SCSI_INQUIRY_DATA *inquiry_block;      // SCSI information
+	FsFile        *m_file;                  // File object
+	uint64_t      m_fileSize;               // File size
+	uint16_t      m_blocksize;              // SCSI BLOCK size
+  uint16_t      m_rawblocksize;           // OPTICAL raw sector size
+  uint8_t       m_type;                   // SCSI device type
+  uint32_t      m_blockcount;             // blockcount
+  bool          m_raw;                    // Raw disk
+  SCSI_INQUIRY_DATA *inquiry_block;       // SCSI information
   uint8_t       m_senseKey;               // Sense key
   uint16_t      m_additional_sense_code;  // ASC/ASCQ 
   bool          m_mode2;                  // MODE2 CDROM
-  uint8_t       m_offset;                 // ISO offset for missing sync header
+  uint8_t       m_sector_offset;          // optical sector offset for missing sync header
 } SCSI_DEVICE;
 
 
