@@ -328,13 +328,17 @@ void setup()
   uint32_t oTypeA_And = 0x000078FF;
   // PA 8, 9, 10, 15
   uint32_t oTypeA_Or = 0x00008700;
+#ifndef MCU_STM32F401CC
   GPIOA->regs->OTYPER = (GPIOA->regs->OTYPER & oTypeA_And) | oTypeA_Or;
+#endif
 
   // PB 1, 11 are not used
   uint32_t oTypeB_And = 0x00000802;
   // PB 0, 2-10, 12-15 are used for SCSI, set open drain
   uint32_t oTypeB_Or = 0x0000F7FD;
+#ifndef MCU_STM32F401CC
   GPIOB->regs->OTYPER = (GPIOB->regs->OTYPER & oTypeB_And) | oTypeB_Or;
+#endif
 #endif
 
   SCSI_DB_INPUT()
