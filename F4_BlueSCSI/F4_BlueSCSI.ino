@@ -48,11 +48,18 @@
 #define XCVR             0      // 0 for standard mode
                                 // 1 for transceiver hardware
 
+
+#ifndef MCU_STM32F401CC
+#define MCV "F4"
+#else
+#define MCV "F4Lite"
+#endif
+
 // Log File
 #if XCVR == 1
-#define VERSION "1.1-SNAPSHOT-2022-06-27-F4-XCVR"
+#define VERSION "1.1-2022-07-27-XCVR-" MCV
 #else
-#define VERSION "1.1-SNAPSHOT-2022-06-27-F4"
+#define VERSION "1.1-2022-07-27-" MCV
 #endif
 #define LOG_FILENAME "LOG.txt"
 
