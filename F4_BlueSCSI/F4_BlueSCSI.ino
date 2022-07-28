@@ -57,9 +57,9 @@
 
 // Log File
 #if XCVR == 1
-#define VERSION "1.1-2022-07-27-XCVR-" MCV
+#define VERSION "1.1-SNAPSHOT-2022-07-27-XCVR-" MCV
 #else
-#define VERSION "1.1-2022-07-27-" MCV
+#define VERSION "1.1-SNAPSHOT-2022-07-27-" MCV
 #endif
 #define LOG_FILENAME "LOG.txt"
 
