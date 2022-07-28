@@ -1103,12 +1103,16 @@ void MsgIn2(int msg)
  */
 void loop() 
 {
-#ifdef XCVR
+#if XCVR == 1
   // Reset all DB and Target pins, switch transceivers to input
   // Precaution against bugs or jumps which don't clean up properly
   SCSI_DB_INPUT();
   TRANSCEIVER_IO_SET(vTR_DBP,TR_INPUT)
   SCSI_TARGET_INACTIVE();
+  TRANSCEIVER_IO_SET(vTR_TARGET,TR_INPUT)
+  // Reset target state bits (BSY, MSG, CD, REQ, IO)
+  GPIOB->regs->BSRR = 0x000000E8; // MSG, CD, REQ, IO
+  GPIOA->regs->BSRR = 0x00000200; // BSY
   TRANSCEIVER_IO_SET(vTR_INITIATOR,TR_INPUT)
 #endif
 
@@ -1133,10 +1137,8 @@ void loop()
   }
   // We've been selected
 
-  #ifdef XCVR
-  // Reconfigure target pins to output mode, after resetting their values
-  GPIOB->regs->BSRR = 0x000000E8; // MSG, CD, REQ, IO
-  //  GPIOA->regs->BSRR = 0x00000200; // BSY
+#if XCVR == 1
+  TRANSCEIVER_IO_SET(vTR_TARGET,TR_OUTPUT);
 #endif
   SCSI_TARGET_ACTIVE()  // (BSY), REQ, MSG, CD, IO output turned on
 
@@ -1144,7 +1146,7 @@ void loop()
   SCSI_BSY_ACTIVE();     // Turn only BSY output ON, ACTIVE
 
   // Wait until SEL becomes inactive
-  while(isHigh(gpio_read(SEL))) {}
+  while(isHigh(digitalRead(SEL))) {}
   
   // Ask for a TARGET-ID to respond
   m_id = 31 - __builtin_clz(scsiid);
@@ -1157,7 +1159,7 @@ void loop()
   enableResetJmp();
   
   // In SCSI-2 this is mandatory, but in SCSI-1 it's optional 
-  if(isHigh(gpio_read(ATN))) {
+  if(isHigh(digitalRead(ATN))) {
     SCSI_PHASE_CHANGE(SCSI_PHASE_MESSAGEOUT);
     // Bus settle delay 400ns. Following code was measured at 350ns before REQ asserted. Added another 50ns. STM32F103.
     SCSI_PHASE_CHANGE(SCSI_PHASE_MESSAGEOUT);// 28ns delay STM32F103
@@ -1166,7 +1168,7 @@ void loop()
     int syncperiod = 50;
     int syncoffset = 0;
     int msc = 0;
-    while(isHigh(gpio_read(ATN)) && msc < 255) {
+    while(isHigh(digitalRead(ATN)) && msc < 255) {
       m_msb[msc++] = readHandshake();
     }
     for(int i = 0; i < msc; i++) {
@@ -1333,7 +1335,7 @@ BusFree:
   //SCSI_OUT(vIO ,inactive) // gpio_write(IO, low);
   //SCSI_OUT(vBSY,inactive)
   SCSI_TARGET_INACTIVE() // Turn off BSY, REQ, MSG, CD, IO output
-#ifdef XCVR
+#if XCVR == 1
   TRANSCEIVER_IO_SET(vTR_TARGET,TR_INPUT);
   // Something in code linked after this function is performing better with a +4 alignment.
   // Adding this nop is causing the next function (_GLOBAL__sub_I_SD) to have an address with a last digit of 0x4.
@@ -1347,11 +1349,8 @@ BusFree:
 static byte onUnimplemented(SCSI_DEVICE *dev, const byte *cdb)
 {
   // does nothing!
-  if(Serial)
-  {
-    Serial.print("Unimplemented SCSI command: ");
-    Serial.println(cdb[0], 16);
-  }
+  LOG("Unimplemented SCSI command: ");
+  LOGHEXN(cdb[0]);
 
   dev->m_senseKey = SCSI_SENSE_ILLEGAL_REQUEST;
   dev->m_additional_sense_code = SCSI_ASC_INVALID_OPERATION_CODE;
