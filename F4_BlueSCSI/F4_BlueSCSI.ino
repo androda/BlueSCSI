@@ -1556,7 +1556,7 @@ void loop()
   SCSI_BSY_ACTIVE();     // Turn only BSY output ON, ACTIVE
 
   // Wait until SEL becomes inactive
-  while(isHigh(gpio_read(SEL))) {}
+  while(isHigh(digitalRead(SEL))) {}
   
   // Ask for a TARGET-ID to respond
   m_id = 31 - __builtin_clz(scsiid);
@@ -1569,7 +1569,7 @@ void loop()
   enableResetJmp();
   
   // In SCSI-2 this is mandatory, but in SCSI-1 it's optional 
-  if(isHigh(gpio_read(ATN))) {
+  if(isHigh(digitalRead(ATN))) {
     SCSI_PHASE_CHANGE(SCSI_PHASE_MESSAGEOUT);
     // Bus settle delay 400ns. Following code was measured at 350ns before REQ asserted. Added another 50ns. STM32F103.
     SCSI_PHASE_CHANGE(SCSI_PHASE_MESSAGEOUT);// 28ns delay STM32F103
