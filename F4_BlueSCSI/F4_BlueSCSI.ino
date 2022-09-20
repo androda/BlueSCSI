@@ -55,11 +55,13 @@
 #define MCV "F4Lite"
 #endif
 
+#define VDS "2022-09-20"
+
 // Log File
 #if XCVR == 1
-#define VERSION "1.1-SNAPSHOT-2022-07-27-XCVR-" MCV
+#define VERSION "1.1-" VDS "-XCVR-" MCV
 #else
-#define VERSION "1.1-SNAPSHOT-2022-07-27-" MCV
+#define VERSION "1.1-" VDS "-" MCV
 #endif
 #define LOG_FILENAME "LOG.txt"
 
@@ -705,7 +707,7 @@ void initFileLog(int success_mhz) {
   }
   LOG_FILE.print("SdFat Max FileName Length: ");
   LOG_FILE.println(MAX_FILE_PATH);
-  LOG_FILE.println("Initialized SD Card - let's go!");
+  LOG_FILE.println("Initialized SD Card - lets go!");
   LOG_FILE.sync();
 }
 
