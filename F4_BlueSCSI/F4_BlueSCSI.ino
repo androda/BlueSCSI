@@ -55,7 +55,7 @@
 #define MCV "F4Lite"
 #endif
 
-#define VDS "2022-09-20"
+#define VDS "2022-12-20"
 
 // Log File
 #if XCVR == 1
