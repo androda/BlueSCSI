@@ -204,13 +204,12 @@ void readSDCardInfo()
     LOG_FILE.println(sd_cid.pnm[4]);
 
     LOG_FILE.print("Sd Date:");
-    LOG_FILE.print(sd_cid.mdt_month);
-    LOG_FILE.print("/20"); // CID year is 2000 + high/low
-    LOG_FILE.print(sd_cid.mdt_year_high);
-    LOG_FILE.println(sd_cid.mdt_year_low);
+    LOG_FILE.print(sd_cid.mdtMonth());
+    LOG_FILE.print("/");
+    LOG_FILE.println(sd_cid.mdtYear());
 
     LOG_FILE.print("Sd Serial:");
-    LOG_FILE.println(sd_cid.psn);
+    LOG_FILE.println(sd_cid.psn());
     LOG_FILE.sync();
   }
 }
@@ -924,7 +923,7 @@ void writeDataLoop(uint32_t blocksize, const byte* srcptr) {
 
   register uint32_t req_bit = BITMASK(vREQ);
   register uint32_t req_rst_bit = BITMASK(vREQ) << 16;
-  register volatile uint32_t *port_a_idr = &(GPIOA->regs->IDR);
+  register volatile uint32 *port_a_idr = &(GPIOA->regs->IDR);
 
   // Start the first bus cycle.
   FETCH_BSRR_DB();
@@ -1030,7 +1029,7 @@ void readDataLoop(uint32_t blockSize, byte* dstptr)
 #define WAIT_ACK_INACTIVE() while(!(*port_a_idr>>(vACK&15)&1))
   register uint32_t req_bit = BITMASK(vREQ);
   register uint32_t req_rst_bit = BITMASK(vREQ) << 16;
-  register volatile uint32_t *port_a_idr = &(GPIOA->regs->IDR);
+  register volatile uint32 *port_a_idr = &(GPIOA->regs->IDR);
   REQ_ON();
   // Start of the do/while and WAIT are already aligned to 8 bytes.
   do {
